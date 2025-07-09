@@ -134,7 +134,7 @@ body {
 
 .message.bot {
   align-self: flex-start;
-    white-space: pre-wrap;
+  white-space: pre-wrap;
   background-color: #e3f2fd;
   color: #0d47a1;
 }
@@ -169,66 +169,6 @@ button:hover {
   background-color: #0056b3;
 }
 
-.spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
-  border-radius: 50%;
-  width: 14px;
-  height: 14px;
-  animation: spin 1s linear infinite;
-  display: inline-block;
-  margin-left: 5px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.welcome-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  background-color: #f4f4f9;
-}
-
-.welcome-card {
-  background-color: white;
-  padding: 40px;
-  border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  width: 400px;
-}
-
-.welcome-card h1 {
-  text-align: center;
-  margin-bottom: 20px;
-  color: #333;
-}
-
-.welcome-card form {
-  display: flex;
-  flex-direction: column;
-}
-
-.welcome-card input,
-.welcome-card select {
-  margin-bottom: 15px;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-}
-
-.welcome-card button {
-  padding: 12px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
 .clear-chat-button {
   display: flex;
   align-items: center;
@@ -244,4 +184,20 @@ button:hover {
 
 .clear-chat-button:hover {
   background-color: #c82333;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  margin-left: 5px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
