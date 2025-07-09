@@ -1,0 +1,247 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f9;
+  overflow: hidden;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: #f0f0f0;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.sidebar h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.sidebar-item {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.sidebar-item:hover {
+  background-color: #e6e6e6;
+}
+
+.chatbot-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chatbot-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 16px;
+  border-bottom: 1px solid #ddd;
+}
+
+.fiuba-logo {
+  width: 40px;
+  height: 40px;
+}
+
+.chatbot-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
+  margin: 0 15px;
+}
+
+.welcome-user {
+  margin-right: auto;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.sidebar-footer {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.back-button:hover {
+  background-color: #5a6268;
+}
+
+.download-report {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-left: 15px;
+}
+
+.chat-window {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.message {
+  padding: 10px 15px;
+  border-radius: 18px;
+  max-width: 80%;
+  word-wrap: break-word;
+}
+
+.message.user {
+  align-self: flex-end;
+  background-color: #d3d3d3;
+  color: #333;
+}
+
+.message.bot {
+  align-self: flex-start;
+    white-space: pre-wrap;
+  background-color: #e3f2fd;
+  color: #0d47a1;
+}
+
+.input-container {
+  display: flex;
+  border-top: 1px solid #ddd;
+  padding: 10px;
+}
+
+textarea {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  resize: none;
+  font-size: 16px;
+  margin-right: 10px;
+}
+
+button {
+  padding: 12px;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  border-radius: 5px;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  margin-left: 5px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.welcome-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #f4f4f9;
+}
+
+.welcome-card {
+  background-color: white;
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 400px;
+}
+
+.welcome-card h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.welcome-card form {
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-card input,
+.welcome-card select {
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.welcome-card button {
+  padding: 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.clear-chat-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.clear-chat-button:hover {
+  background-color: #c82333;
+}
