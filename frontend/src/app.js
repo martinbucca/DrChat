@@ -6,6 +6,8 @@ import ChatWindow from './componentes/ChatWindow';
 import InputBox from './componentes/InputBox';
 import LeftSidebar from './componentes/LeftSidebar';
 import RightSidebar from './componentes/RightSidebar';
+import './estilos/chatbot.css'; // ajustá la ruta si cambió
+
 
 const App = () => {
   const [messages, setMessages] = useState([]);

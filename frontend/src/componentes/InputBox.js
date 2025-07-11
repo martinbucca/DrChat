@@ -1,5 +1,3 @@
-import React from 'react';
-import { Trash } from 'lucide-react';
 
 const InputBox = ({ userInput, setUserInput, handleSendMessage, handleClearChat }) => (
   <div className="input-container">
@@ -15,9 +13,11 @@ const InputBox = ({ userInput, setUserInput, handleSendMessage, handleClearChat 
       }}
       rows={3}
     />
-    <button onClick={handleSendMessage}>Enviar</button>
+    <button className="send-button" onClick={handleSendMessage}>
+      Enviar</button>
+      
     <button className="clear-chat-button" onClick={handleClearChat}>
-      <Trash size={20} /> Limpiar
+    Limpiar
     </button>
   </div>
 );

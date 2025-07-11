@@ -23,7 +23,22 @@ html, body {
   box-shadow: 0 4px 12px rgba(0, 59, 92, 0.1);
   text-align: center;
   max-width: 400px;
-  width: 100%; /* para que tome todo el ancho del contenedor padre */
+  width: 100%;
+}
+
+/* Título */
+.welcome-card h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: #212529;
+  margin-bottom: 12px; /* 👈 Espacio entre el título y el subtítulo */
+}
+
+/* Subtítulo */
+.welcome-card .subtitle {
+  font-size: 15px;
+  color: #555;
+  margin-bottom: 24px; /* 👈 Espacio antes del form */
 }
 
 /* Formulario */
@@ -36,7 +51,6 @@ form {
 /* Inputs y selects */
 input, select {
   width: 100%;
-  max-width: 100%;
   padding: 12px;
   margin-bottom: 16px;
   border: 1px solid #ccc;
@@ -46,17 +60,19 @@ input, select {
 
 /* Botón */
 button {
-  background-color: #00a6a6;
+  background-color: #007bff;
   color: white;
   border: none;
   padding: 12px 20px;
   border-radius: 8px;
   cursor: pointer;
   width: 100%;
+  font-weight: 500;
 }
 
 /* Hover */
 button:hover {
-  background-color: #007e7e;
+  background-color: #0056b3;
 }
+
 
