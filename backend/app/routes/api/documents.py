@@ -1,6 +1,6 @@
+from backend.app.services.document_parser import extract_text_from_pdf
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from typing import List
-from app.services.document_parser import extract_text_from_pdf
 
 router = APIRouter()
 

@@ -1,0 +1,13 @@
+langchain-huggingface
+langchain-community
+langchain-experimental
+langchain
+langchain-groq
+langchain-openai
+neo4j
+json-repair
+pypdf
+PyPDF2
+python-multipart
+fastapi
+uvicorn
