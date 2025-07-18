@@ -7,7 +7,7 @@ router = APIRouter()
 class QueryRequest(BaseModel):
     query: str
 
-@router.post("/answer")
+@router.post("/answer_question")
 async def answer_question(request: QueryRequest):
     print("SOLICITUD DE CHUNK")
     try:

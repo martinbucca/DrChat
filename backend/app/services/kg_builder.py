@@ -1,8 +1,8 @@
 import os
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.graphs import Neo4jGraph
 from langchain_openai import ChatOpenAI
+from langchain_neo4j import Neo4jGraph
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_community.graphs.graph_document import Node, Relationship
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 EMBEDDINGS_MODEL = "sentence-transformers/msmarco-distilbert-base-tas-b"
-MODEL = "mixtral-8x7b-32768"
+MODEL = "deepseek-r1-distill-llama-70b"
 DOCS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "documents")
 GROQ_API_BASE = "https://api.groq.com/openai/v1"
 
