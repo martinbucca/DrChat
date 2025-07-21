@@ -21,6 +21,12 @@ A continuación se listan las variables de entorno necesarias para el correcto f
 
 ---
 
+## 🗺️ Diagrama de arquitectura
+
+![Diagrama de arquitectura](img/diagrama-arquitectura.png)
+
+---
+
 ## 🌐 **Frontend**
 
 El frontend está desarrollado en React y se comunica con el backend a través de los endpoints expuestos por los microservicios. Permite a los usuarios interactuar con el sistema, enviar mensajes y recibir respuestas basadas en la información procesada.
