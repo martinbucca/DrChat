@@ -1,86 +1,71 @@
 # DrChat
 
-[GraphRAG Manifesto](https://neo4j.com/blog/genai/graphrag-manifesto/)
+Chatbot médico que procesa documentos PDF y permite a los usuarios interactuar con un sistema de preguntas y respuestas basado en la información contenida en dichos documentos.
 
-[TP GraphRAG - Aprendizaje Automatico](https://github.com/martinbucca/TP-Aprendizaje-Automatico/tree/main)
+Los archivos PDF pueden ser cargados via endpoint por administradores para alimentar el grafo base de conocimiento del sistema o ser enviados por los usuarios a través del frontend. En caso de ser enviados por los usuarios, los nodos generados incluirán un `chat_id` para asociar el documento a un chat específico. El sistema procesa los documentos, extrae entidades y relaciones, y permite a los usuarios realizar consultas sobre la información contenida en ellos.
 
-## Aclaraciones ##
-- Instalar todas las dependencias que se encuentran en el archivo ```requirements.txt```
+---
 
-    Ejecutar desde la raíz del proyecto:
+## 🔧 Variables de entorno
 
-    ```pip install -r requirements.txt```
-- Para levantar la api y probarla:
-Desde la raíz del proyecto: 
+A continuación se listan las variables de entorno necesarias para el correcto funcionamiento del proyecto:
 
-    ```python -m uvicorn app.main:app --reload```
-    
-    Y para probarla desde swagger: http://localhost:8000/docs
+| Variable                | Descripción                                                                 |
+|-------------------------|-----------------------------------------------------------------------------|
+| `TOKENIZERS_PARALLELISM`| Controla el paralelismo en el procesamiento de tokenizadores (NLP).         |
+| `GROQ_API_KEY`          | API Key para acceder a servicios de Groq (modelos de lenguaje).             |
+| `NEO4J_URI`             | URI de conexión para la base de datos Neo4j.                                |
+| `NEO4J_USERNAME`        | Usuario para autenticación en Neo4j.                                        |
+| `NEO4J_PASSWORD`        | Contraseña para autenticación en Neo4j.                                     |
+| `NEO4J_DATABASE`        | Nombre de la base de datos utilizada en Neo4j.                              |
 
+---
 
-# GraphRAG
+## 🌐 **Frontend**
 
-GraphRAG (Graph Retrieval-Augmented Generation) es una técnica avanzada que combina sistemas de búsqueda basada en grafos y modelos de lenguaje natural para responder a consultas complejas. La idea central es estructurar y almacenar información de manera semántica utilizando un grafo de conocimiento, mientras se emplean embeddings vectoriales para realizar búsquedas precisas y contextuales. Esta arquitectura tiene las siguientes ventajas:
+El frontend está desarrollado en React y se comunica con el backend a través de los endpoints expuestos por los microservicios. Permite a los usuarios interactuar con el sistema, enviar mensajes y recibir respuestas basadas en la información procesada.
 
-1. **Recuperación basada en contexto**: Permite buscar información no solo por palabras clave, sino también por relaciones semánticas y similitudes vectoriales, lo que mejora la precisión y relevancia de las respuestas.
-2. **Expansión del contexto**: Al extraer relaciones y entidades conectadas, se enriquece el contexto disponible para la generación de respuestas, proporcionando resultados más completos y útiles.
-3. **Escalabilidad**: La estructura basada en grafos es altamente eficiente para manejar datos complejos y altamente interrelacionados.
-4. **Explicabilidad**: El uso de grafos permite rastrear de manera explícita las conexiones entre la consulta del usuario y las respuestas generadas, aumentando la transparencia del sistema.
-5. **Interoperabilidad**: Facilita la integración de múltiples fuentes de datos estructurados y no estructurados, como documentos, bases de datos y sistemas externos.
-Con esta arquitectura, GraphRAG permite obtener respuestas precisas y contextualmente ricas para consultas en dominios complejos y densos en datos, como el análisis de documentos o el soporte técnico especializado.
+---
 
+## 🛠️ **Backend**
 
+El backend está dividido en tres módulos principales: **Ingestion**, **Pipeline** y **User**. Cada módulo contiene microservicios y workers que interactúan entre sí a través de apis REST y Kafka.
 
-## Creacion del grafo Neo4j
-1. Se cargan todos los documentos PDF que se encuentren en `./backend/documents`
-2. Se divide cada documento en chunks
-3. A cada chunk se le calcula el vector embedding utilizando `HuggingFace` y el modelo `sentence-transformers/msmarco-distilbert-base-tas-b` (los embeddings tienen dimension 768).
-4. Se crea un Nodo por cada documento que tiene como propiedades un id unico.
-5. Se crea un Nodo por cada chunk que tiene como propiedades un id unico, el texto y el embedding.
-6. Se crean relaciones entre cada chunk con el documento al que pertenece del tipo `(Chunk)-PART_OF->(Document)`
-7. Utilizando [`LLMGraphTransformer`](https://python.langchain.com/v0.1/docs/use_cases/graph/constructing/#llm-graph-transformer), se extraen entidades y relaciones por cada chunk y se agregan al grafo Neo4j. Cada entidad se relaciona con el chunk del cual fue extraida con una relacion del tipo `(Chunk)-HAS_ENTITY->(Entity)`. Las entidades pueden tener relaciones entre sí dependiendo como la LLM haya decidido extraerlas/crearlas.
-8. Se crea el `Vector Index` el cual va a ser consultado para buscar similitudes entre la query del usuario y los embeddings generados para cada chunk previamente. Se utiliza la funcion de similaridad `Cosine`.
+### 📦 **Ingestion**
 
-### Para crear el grafo a partir de los documentos PDF que haya en ./backend/documents, se tiene que levantar el backend y pegarle al endpoint con curl:
-```
-curl -X POST http://127.0.0.1:5000/create_kg -H "Content-Type: application/json"
-```
+#### `file-service`
+**Descripción:**  
+👉 Microservicio que se encarga de recibir archivos PDF, guardarlos en la carpeta `storage` y publicar un mensaje en Kafka indicando que el archivo está listo para ser procesado. Además, se conecta a MongoDB (colección: `files`) donde mantiene el estado del archivo, que puede ser `pending`, `processing`, `processed` o `error`. Analizar que se debe hacer en caso de falla al procesar algún documento.
 
-## Vector Rag
-1. Por cada pregunta/query ingresada por el usario se obtiene el embedding, utilizando el mismo proveedor de embeddings utilizado para crear los embeddings de los chunks de cada documento (HugginFace, modelo sentence-transformers/msmarco-distilbert-base-tas-b y una dimension de 768).
-2. El Vector Index de Neo4j al recibir el embedding busca en su Indice por el top K de vectores mas cercanos. El top k es una constante setteada en 3, que puede ser modificada (NUMBER_OF_DOCUMENTS_RETRIEVED = 3).
-3. Obtiene los chunks mas parecidos al embedding de la consulta del usuario, su puntaje de similitud y realiza una Retrieval Query que le permite expandir su contexto: Por cada chunk obtenido, busca en el grafo todas las entidades relacionadas a ese chunk y por cada entidad todas sus aristas/relaciones y devuelve todo eso como contexto.
-4. Se le pasa a la LLM ChatGroq un prompt que tiene instrucciones especificas sobre que responder y el contexto obtenido del Vector Index en el paso 3. Se invoca a esta LLM y se devuelve el resultado. 
- 
+**Endpoints:**
+- `POST /files/upload`: Recibe un archivo PDF y lo guarda en el sistema. Debe también poder recibir un chat_id opcional para asociar el archivo a un chat específico
+- `GET /files/{file_id}`: Obtiene el estado del archivo por su ID
+- `PUT /files/{file_id}/status`: Actualiza el estado del archivo (por ejemplo, de `pending` a `processing` o `processed`).
 
-## Como correr
+---
 
+### 🔄 **Pipeline**
 
+#### `document-processor-worker`
+**Descripción:**  
+👉 Worker que consume los mensajes publicados por el `file-service`, accede al archivo PDF correspondiente y lo divide en chunks. Procesa en paralelo cada uno y extrae entidades y relaciones para cargar en la base Neo4J. Además le solicita al `file-service` actualizar el estado a `processing` cuando empieza y a `processed` cuando termina.
 
-1. Crear archivo `.env` y reemplzar los valores reales (mirar `.env.example`):
-     - [Obtener Groq Api Key](https://console.groq.com/keys) y setearla en .env 
-     - [Crear instancia Neo4j Aura](https://neo4j.com/docs/aura/auradb/getting-started/create-database/#:~:text=To%20create%20an%20AuraDB%20Virtual,storage%20allocated%20to%20the%20instance.) y setear credenciales en .env:
-2. Activar virtual env:
-```
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-```
-3. Instalar dependencias:
-```
-cd backend
-pip install -r requirements.txt
-```
-4. Correr backend:
-```
-cd backend
-python3 main.py
-```
-5. Correr frontend:
-```
-cd frontend
-npm install
-npm start
-```
-    
+---
 
+### 👤 **User**
+
+#### `chat-service`
+**Descripción:**  
+👉 Microservicio encargado de recibir los mensajes de los usuarios y almacenarlos en una colección de MongoDB (`chats`). Para responder, se comunica con el `retriever-service`, que obtiene el contexto y genera la respuesta.
+
+**Endpoints:**
+- `POST /chat/send`: Recibe un mensaje de usuario, lo almacena y responde. En la respuesta se incluye el ID del chat.
+- `GET /chat/{chat_id}`: Obtiene el historial de mensajes de un chat por su ID.
+- `GET /chat/{chat_id}/last`: Obtiene el último mensaje de un chat.
+
+#### `retriever-service`
+**Descripción:**  
+👉 Microservicio encargado de recibir solicitudes de contexto desde el `chat-service`. Realiza consultas sobre el grafo en Neo4j para recuperar información contextual y relevante para la respuesta del chat.
+
+**Endpoints:**
+- `POST /retriever/context`: Recibe el mensaje y el `chat_id`, realiza la consulta en Neo4j, y devuelve el contexto necesario para la respuesta.
