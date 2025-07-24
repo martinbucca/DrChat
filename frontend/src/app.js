@@ -97,7 +97,24 @@ const App = () => {
     }
   };
 
+
   const handleClearChat = () => setUserInput('');
+
+  const handleSearchChatId = async (chatId) => {
+  try {
+    const response = await fetch(`/api/conversations/${chatId}`); // Adjust endpoint accordingly
+    if (!response.ok) throw new Error('Failed to fetch conversation');
+
+    const data = await response.json();
+    setMessages(data.messages);
+    setConversationHistory(data.history || []);
+  } catch (error) {
+    console.error(error);
+    alert('Error loading chat by ID');
+  }
+  };
+
+  const chatId = 1;
 
   if (showWelcome) return <WelcomeScreen onStart={handleStartChat} />;
 
@@ -122,10 +139,14 @@ const App = () => {
           handleClearChat={handleClearChat}
         />
       </div>
-      <RightSidebar
-        conversationHistory={conversationHistory}
-        handleHistoryQuestionClick={handleHistoryQuestionClick}
-      />
+      <div className="right-sidebar">
+        <RightSidebar
+          conversationHistory={conversationHistory}
+          handleHistoryQuestionClick={handleHistoryQuestionClick}
+          handleSearchChatId={handleSearchChatId}
+          chatId = {chatId}
+        />
+      </div>
     </div>
   );
 };

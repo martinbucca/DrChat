@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # Backend services
+
+  # file-service:
+  #   build:
+  #     context: ./backend/ingestion/file-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8001:8000"  
+  #   env_file:
+  #     - ./backend/.env
+  
+  # document-processor-worker:
+  #   build:
+  #     context: ./backend/pipeline/document-processor-worker
+  #     dockerfile: Dockerfile
+  #   env_file:
+  #     - ./backend/.env
+
+  # entity-relation-extractor-worker:
+  #   build:
+  #     context: ./backend/pipeline/entity-relation-extractor-worker
+  #     dockerfile: Dockerfile
+  #   env_file:
+  #     - ./backend/.env
+
+  # chat-service:
+  #   build:
+  #     context: ./backend/user/chat-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8002:8000"
+  #   env_file:
+  #     - ./backend/.env
+
+  # retriever-service:
+  #   build:
+  #     context: ./backend/user/retriever-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8003:8000"
+  #   env_file:
+  #     - ./backend/.env
+
+  # Frontend service
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"  # because nginx serves on port 80
