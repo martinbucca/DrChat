@@ -102,7 +102,7 @@ const App = () => {
 
   const handleSearchChatId = async (chatId) => {
   try {
-    const response = await fetch(`/api/conversations/${chatId}`); // Adjust endpoint accordingly
+    const response = await fetch(`/api/conversations/${chatId}`); 
     if (!response.ok) throw new Error('Failed to fetch conversation');
 
     const data = await response.json();
