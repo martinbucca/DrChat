@@ -18,6 +18,10 @@ A continuación se listan las variables de entorno necesarias para el correcto f
 | `NEO4J_USERNAME`        | Usuario para autenticación en Neo4j.                                        |
 | `NEO4J_PASSWORD`        | Contraseña para autenticación en Neo4j.                                     |
 | `NEO4J_DATABASE`        | Nombre de la base de datos utilizada en Neo4j.                              |
+| `MONGODB_URL`           | URL de conexión para MongoDB (ej: `mongodb://mongodb:27017/drchat`).        |
+| `DATABASE_NAME`         | Nombre de la base de datos MongoDB (ej: `drchat`).                          |
+| `STORAGE_DIR`           | Directorio donde se almacenan los archivos subidos (ej: `/app/storage`).    |
+| `LOG_LEVEL`             | Nivel de logging para los servicios (ej: `INFO`, `DEBUG`, `ERROR`).         |
 
 ---
 
@@ -41,12 +45,14 @@ El backend está dividido en tres módulos principales: **Ingestion**, **Pipelin
 
 #### `file-service`
 **Descripción:**  
-👉 Microservicio que se encarga de recibir archivos PDF, guardarlos en la carpeta `storage` y publicar un mensaje en Kafka indicando que el archivo está listo para ser procesado. Además, se conecta a MongoDB (colección: `files`) donde mantiene el estado del archivo, que puede ser `pending`, `processing`, `processed` o `error`. Analizar que se debe hacer en caso de falla al procesar algún documento.
+👉 Microservicio desarrollado con **FastAPI** que se encarga de recibir archivos PDF, guardarlos en el directorio de almacenamiento y mantener un registro de metadatos en **MongoDB**. El servicio utiliza una arquitectura modular con separación clara de responsabilidades y está completamente containerizado con Docker.
 
 **Endpoints:**
-- `POST /files/upload`: Recibe un archivo PDF y lo guarda en el sistema. Debe también poder recibir un chat_id opcional para asociar el archivo a un chat específico
-- `GET /files/{file_id}`: Obtiene el estado del archivo por su ID
-- `PUT /files/{file_id}/status`: Actualiza el estado del archivo (por ejemplo, de `pending` a `processing` o `processed`).
+- `GET /`: Health check del servicio
+- `POST /files/upload`: Recibe un archivo PDF y lo guarda en el sistema. Acepta un `chat_id` opcional para asociar el archivo a un chat específico
+- `GET /files/{file_id}`: Obtiene el estado y metadatos del archivo por su ID
+- `PUT /files/{file_id}/status`: Actualiza el estado del archivo (por ejemplo, de `pending` a `processing` o `processed`)
+- `GET /docs`: Documentación interactiva de la API (Swagger UI)
 
 ---
 
@@ -75,3 +81,54 @@ El backend está dividido en tres módulos principales: **Ingestion**, **Pipelin
 
 **Endpoints:**
 - `POST /retriever/context`: Recibe el mensaje y el `chat_id`, realiza la consulta en Neo4j, y devuelve el contexto necesario para la respuesta.
+
+---
+
+## 🚀 **Cómo ejecutar el proyecto**
+
+El proyecto utiliza **Docker Compose** para orquestar todos los servicios. Asegúrate de tener Docker y Docker Compose instalados en tu sistema.
+
+### **📋 Prerrequisitos**
+
+1. **Docker** y **Docker Compose** instalados
+2. Archivo `.env` configurado (usa `.env.example` como referencia)
+
+### **🔧 Configuración inicial**
+
+```bash
+# Clonar el repositorio
+git clone <repository-url>
+cd DrChat
+
+# Copiar y configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus configuraciones específicas
+```
+
+### **🐳 Comandos Docker**
+
+```bash
+# Construir e iniciar todos los servicios
+docker-compose up --build -d
+
+# Ver el estado de los servicios
+docker-compose ps
+
+# Reconstruir un servicio específico
+docker-compose build file-service
+docker-compose up file-service -d
+
+# Parar todos los servicios
+docker-compose down
+```
+
+### **🌐 Acceso a los servicios**
+
+Una vez que los servicios estén ejecutándose:
+
+| Servicio | URL | Descripción |
+|----------|-----|-------------|
+| **Frontend** | http://localhost:5000 | Interfaz web de DrChat |
+| **File Service** | http://localhost:8001/docs | API de gestión de archivos (Swagger) |
+| **Health Check** | http://localhost:8001/ | Estado del file-service |
+| **MongoDB** | localhost:27017 | Base de datos (acceso directo) |
