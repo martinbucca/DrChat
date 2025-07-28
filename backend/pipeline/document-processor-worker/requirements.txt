@@ -1,0 +1,9 @@
+langchain
+langchain-core
+langchain-community
+langchain-huggingface
+langchain-neo4j
+huggingface_hub
+sentence-transformers
+python-dotenv
+pymupdf
