@@ -4,6 +4,7 @@ from langchain_community.graphs.graph_document import Node, Relationship
 from langchain_huggingface import HuggingFaceEmbeddings
 from document_processor import DocumentProcessor
 from core.logging import logger as log
+from entity_relationship_extractor import EntityRelationshipExtractor
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -20,6 +21,7 @@ class KnowledgeGraphBuilder:
         )
         self.document_processor = DocumentProcessor()
         self.embedding_provider = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL)
+        self.entity_relationship_extractor = EntityRelationshipExtractor()
               
     #TODO: OJO! Cheaquear esto en el futuro porque va a borrar todo el grafo
     # Sirve para limpiar y testear
@@ -50,17 +52,18 @@ class KnowledgeGraphBuilder:
         page_content = chunk.page_content
 
         log.info(f"Processing chunk {chunk_num} for file {filename}, page {page}")
-        chunk_embedding = self.embedding_provider.embed_query(chunk.page_content)
+        chunk_embedding = self.embedding_provider.embed_query(page_content)
 
         properties = {
             "filename": filename,
             "chunk_id": chunk_id,
-            "text": chunk.page_content,
+            "text": page_content,
             "embedding": chunk_embedding,
             "page": page
         }
         
-        self.add_document_and_chunks_to_graph(properties, chunk_num)                              
+        self.add_document_and_chunks_to_graph(properties, chunk_num)  
+        self.entity_relationship_extractor.extract_entities_and_relationships(chunk, chunk_id)                            
             
     def add_document_and_chunks_to_graph(self, properties, offset):
         """
