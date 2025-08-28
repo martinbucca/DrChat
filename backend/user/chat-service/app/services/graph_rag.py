@@ -4,8 +4,7 @@ from typing import Optional, Callable, Any
 from neo4j_graphrag.retrievers.base import Retriever
 from langchain.prompts import PromptTemplate
 from neo4j_graphrag.types import RetrieverResult, RetrieverResultItem, LLMMessage
-from rag_result import RagResult
-
+from app.services.rag_result import RagResult
 class GraphRAGPipeline:
     """
     GraphRAGPipeline orchestrates a Retrieval-Augmented Generation (RAG) workflow. 

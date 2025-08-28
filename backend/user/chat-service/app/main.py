@@ -6,7 +6,7 @@ from app.services.retriever import Retriever
 from app.services.graph_rag import GraphRAGPipeline
 from app.services.chat_history import MessageHistory
 from app.api.api import API
-from api.answer_question_endpoint import AnswerQuestionEndpoint
+from app.api.answer_question_endpoint import AnswerQuestionEndpoint
 from config import (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, VECTOR_INDEX_NAME)
 
 llm_instance = LLM.get_instance()
