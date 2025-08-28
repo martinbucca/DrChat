@@ -33,20 +33,20 @@ class RagResult():
 RETRIEVAL_QUERY = """
     // get the document
     WITH node, score
-    MATCH (node)-[:PART_OF]->(d:Document)
+    MATCH (node)-[:PART_OF_DOCUMENT]->(d:Document)
     WITH node, score, d
     // get the entities
     MATCH (node)-[:MENTIONS]-(e)
     WITH node, score, d, collect({
-        label: labels(e)[0],
+        name: e.name,
         id: e.id
     }) as entities
     RETURN
         {
         text: node.text, 
-        document: d.id,
+        document: d.name,
         score: score,
-        page: node.page,
+        page: node.page_number,
         entities: entities
         } AS metadata
     """
