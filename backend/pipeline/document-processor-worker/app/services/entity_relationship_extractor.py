@@ -1,34 +1,42 @@
 import os
 from langchain_neo4j import Neo4jGraph
-from core.logging import logger as log
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_experimental.graph_transformers import LLMGraphTransformer, GlinerGraphTransformer, RelikGraphTransformer
+from langchain_core.documents import Document
 
 load_dotenv()
 
-
-MODEL = "meta-llama/llama-4-maverick-17b-128e-instruct"
-GROQ_API_BASE = "https://api.groq.com/openai/v1"
-
-os.environ["OPENAI_API_KEY"] = os.environ.get("GROQ_API_KEY")
-
-
 class EntityRelationshipExtractor:
-    def __init__(self):
-        self.graph = Neo4jGraph(
-            url=os.getenv('NEO4J_URI'),
-            username=os.getenv('NEO4J_USERNAME'),
-            password=os.getenv('NEO4J_PASSWORD')
-        )
-        self.llm = ChatOpenAI(
-            model=MODEL,
-            temperature=0,
-            openai_api_base=GROQ_API_BASE
-        )
-        self.docs_transformer = self.create_doc_transformer()  
+    """
+    EntityRelationshipExtractor is a service class designed to extract medical entities and their relationships from unstructured text using a Large Language Model (LLM). The extracted entities and relationships are structured for integration into a graph database such as Neo4j.
+    Key Features:
+    - Utilizes an LLM to transform raw text into graph components (nodes/entities and edges/relationships) with a focus on clinically relevant information.
+    - Supports configurable lists of allowed node and relationship types, tailored for medical and biomedical domains.
+    - Provides serialization methods to convert extracted entities and relationships into dictionary formats suitable for downstream processing or database import.
+    - Implements a singleton pattern via the `get_instance` class method to ensure a single extractor instance is used throughout the application.
+    Usage:
+    1. Initialize the extractor with a compatible LLM.
+    2. Call `extract_entities_and_relationships(text)` to process a text chunk and receive structured entities and relationships.
+    3. The output can be used to populate or update a medical knowledge graph.
+    Attributes:
+        llm: The language model used for entity and relationship extraction.
+        doc_transformer: The document transformer responsible for converting text into graph components.
+    Methods:
+        extract_entities_and_relationships(text): Extracts and serializes entities and relationships from the input text.
+        _serialize_nodes(nodes): Serializes node objects into dictionaries.
+        _serialize_relationships(relationships): Serializes relationship objects into dictionaries.
+        get_instance(): Returns a singleton instance of the extractor.
 
-    def create_doc_transformer(self):
+    """
+
+    _instance = None
+
+    def __init__(self, llm):
+        self.llm = llm
+        self.doc_transformer = self._create_doc_transformer()
+
+    def _create_doc_transformer(self):
         '''
         Crea el transformador de documentos para convertir texto en entidades y relaciones de grafo.
         El transformador de documentos utiliza un LLM para convertir texto en entidades y relaciones de grafo.
@@ -64,8 +72,8 @@ class EntityRelationshipExtractor:
                                    allowed_relationships=potential_relationships,
                                    additional_instructions=additional_instructions, ignore_tool_usage=True, strict_mode=False)                  
     
-    
-    def extract_entities_and_relationships(self, chunk, chunk_id: str):
+
+    def extract_entities_and_relationships(self, text) -> dict:
         """
         Extracts entities and relationships from a text chunk and imports them into Neo4j.
         Connects each entity to the existing Chunk node via MENTIONS relationship.
@@ -74,59 +82,42 @@ class EntityRelationshipExtractor:
             chunk: The text chunk to process
             chunk_id: The ID of the existing Chunk node in Neo4j
         """
-        log.info(f"Extracting entities and relationships for chunk ID: {chunk_id}")
-        graph_docs = self.docs_transformer.convert_to_graph_documents([chunk])
+        doc = Document(page_content=text)
+
+        graph_docs = self.doc_transformer.convert_to_graph_documents([doc])
+        entities = []
+        entity_relationships = []
         for graph_doc in graph_docs:
-            entities = graph_doc.nodes    
-            entity_relationships = graph_doc.relationships
-            
-            self._import_entities(entities, chunk_id)
-            self._import_entity_relationships(entity_relationships) 
+            entities.extend(graph_doc.nodes)
+            entity_relationships.extend(graph_doc.relationships)
+        serialized_entities = self._serialize_nodes(entities)
+        serialized_relationships = self._serialize_relationships(entity_relationships)
+        return {
+            "entities": serialized_entities,
+            "relationships": serialized_relationships
+        }
     
+    def _serialize_nodes(self, nodes):
+        return [
+            {
+                "id": node.id, 
+                "type": node.type
+            }
+            for node in nodes
+        ]
 
-    def _import_entities(self, entities, chunk_id):
-        """Imports entities and connects them to the specified Chunk node"""
-        if not entities:
-            return
-        
-        for entity in entities:
-            # Ensure the entity has a unique ID and type
-            if not entity.id or not entity.type:
-                continue
-            
-            query = f"""
-                MERGE (e:__Entity__ {{id: $id}})
-                SET e += $properties
-                SET e:{entity.type}
-                WITH e as entity
-                MATCH (c:Chunk {{id: $chunk_id}})
-                MERGE (c)-[:MENTIONS]->(entity)
-            """
-
-            self.graph.query(query, params={
-                "id": entity.id,
-                "properties": entity.properties,
-                "chunk_id": chunk_id
-            })
-
-        
-    def _import_entity_relationships(self, relationships):
-        """Imports relationships between Entity nodes"""
-        if not relationships:
-            return
-        
-        for rel in relationships:
-            if not rel.source or not rel.target or not rel.type:
-                continue
-            
-            query = """
-                MATCH (source:__Entity__ {id: $source})
-                MATCH (target:__Entity__ {id: $target})
-                MERGE (source)-[r:`%s`]->(target)
-                SET r += $properties
-            """ % (rel.type)
-            self.graph.query(query, params={
+    def _serialize_relationships(self, relationships):
+        return [
+            {
                 "source": rel.source.id,
                 "target": rel.target.id,
-                "properties": rel.properties
-            })
+                "type": rel.type
+            }
+            for rel in relationships
+        ]
+
+    @classmethod
+    def get_instance(cls, llm):
+        if cls._instance is None:
+            cls._instance = cls(llm)
+        return cls._instance

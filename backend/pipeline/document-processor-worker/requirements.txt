@@ -2,8 +2,12 @@ langchain
 langchain-core
 langchain-community
 langchain-huggingface
+langchain-openai
+langchain-experimental
 langchain-neo4j
 huggingface_hub
 sentence-transformers
 python-dotenv
-pymupdf
+nltk
+unstructured
+
