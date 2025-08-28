@@ -78,25 +78,22 @@ class GraphRAGPipeline:
         retriever_config: Optional[dict] = None,
     ) -> RagResult:
         retriever_config = retriever_config or {}
-
         retriever_result: RetrieverResult = self.retriever.search(
             query_text=query_text,
             **retriever_config
         )
-
         if len(retriever_result.items) == 0:
             return RagResult(
                 answer=self.default_response,
                 retriever_result=retriever_result
             )
-        
         context_formatted = "\n\n"
         for item in retriever_result.items:
             context_formatted += "========================================================\n"
             context_formatted += f"Score: {item.metadata['score']}\n\n"
             context_formatted += f"Document: {item.metadata['document'].split('/')[-1].rsplit('.', 1)[0]}\n\n"
             context_formatted += f"Text: {item.metadata['text'].replace('\\n', chr(10))}\n\n"
-            context_formatted += f"These are the entities mentioned in the text: {', '.join([f'{ent['id']} ({ent['label']})' for ent in item.metadata['entities']])}\n\n"
+            context_formatted += f"These are the entities mentioned in the text: {', '.join([f'{ent['name']} ({ent['id']})' for ent in item.metadata['entities']])}\n\n"
             context_formatted += f"Page: {item.metadata['page']}\n\n"
             context_formatted += "========================================================\n"
 

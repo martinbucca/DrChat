@@ -33,9 +33,9 @@ class API:
         )
 
     @classmethod
-    def get_instance(cls, allowed_origins=None):
+    def get_instance(cls):
         if cls._instance is None:
-            cls._instance = cls(allowed_origins)
+            cls._instance = cls()
         return cls._instance
 
     @property
