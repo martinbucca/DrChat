@@ -1,4 +1,6 @@
 from neo4j_graphrag.retrievers import VectorCypherRetriever
+import neo4j
+from neo4j_graphrag.types import RetrieverResultItem
 
 class Retriever:
     """
@@ -29,16 +31,16 @@ class Retriever:
     MATCH (node)-[:MENTIONS]-(e)
     WITH node, score, d, collect({
         name: e.name,
-        id: e.id
+        id: e.id,
+        elementId: elementId(e)
     }) as entities
     RETURN
-        {
-        text: node.text, 
-        document: d.name,
-        score: score,
-        page: node.page_number,
-        entities: entities
-        } AS metadata
+        node.text AS nodeText,
+        score, 
+        node.page_number AS page,
+        d.name AS document,
+        entities,
+        collect(elementId(node)) + [entity IN entities | entity.elementId] as listIds
     """
 
 
@@ -47,13 +49,42 @@ class Retriever:
             driver,
             index_name=index_name,
             retrieval_query=self.RETRIEVAL_QUERY,
-            #result_formatter=self.formatter,
+            result_formatter=self.formatter,
             embedder=embedder,
             neo4j_database='neo4j',
         )
 
     # TODO: Implement a better formatter that structures the results in a more useful way.
     # def formatter(self, results):
+    @staticmethod
+    def formatter(record: neo4j.Record) -> RetrieverResultItem:
+        node_text = record.get("nodeText", "")
+        score = record.get("score", 0)
+        document = record.get("document", "")
+        page = record.get("page", "")
+        entities = record.get("entities", [])
+        list_ids = record.get("listIds", [])
+
+        # Format entities as "name (id)"
+        entities_str = ", ".join(
+            f"{ent.get('name', '')} ({ent.get('id', '')})" for ent in entities
+        )
+
+        # Prepare content string, clear and ready for LLM
+        content = (
+            f"Score: {score}\n\n"
+            f"Document: {document.split('/')[-1].rsplit('.', 1)[0]}\n\n"
+            f"Text: {node_text.replace('\\n', chr(10))}\n\n"
+            f"Entities mentioned in the text: {entities_str}\n\n"
+            f"Page: {page}\n"
+        )
+
+        return RetrieverResultItem(
+            content=content,
+            metadata={
+                "listIds": list_ids,
+            }
+        )
         
     @classmethod
     def get_instance(cls, driver, embedder, index_name=None):

@@ -34,25 +34,25 @@ class GraphRAGPipeline:
     # Fijarse cual es la mejor manera de formatear el contexto para que el LLM lo entienda y lo use de la mejor manera posible.
     TEMPLATE = PromptTemplate.from_template(
         template="""
-        You are a medical assistant specialized in systemic lupus erythematosus (SLE).
-        Always:
-        - Provide a concise, structured answer
-        - Use the retrieved context to support your response
-        - Cite the most relevant information from context
-        - If the answer is uncertain or context is missing, state that clearly
-        - Do NOT fabricate information
+You are a medical assistant specialized in systemic lupus erythematosus (SLE).
+Always:
+- Provide a concise, structured answer
+- Use the retrieved context to support your response
+- Cite the most relevant information from context
+- If the answer is uncertain or context is missing, state that clearly
+- Do NOT fabricate information
 
-        Message History:
-        {message_history}   
+Message History:
+{message_history}   
 
-        Context:
-        {context}
+Context:
+{context}
 
-        Question:
-        {query_text}
+Question:
+{query_text}
 
-        Answer:
-        """
+Answer:
+"""
     )
 
     def __init__(
@@ -90,11 +90,7 @@ class GraphRAGPipeline:
         context_formatted = "\n\n"
         for item in retriever_result.items:
             context_formatted += "========================================================\n"
-            context_formatted += f"Score: {item.metadata['score']}\n\n"
-            context_formatted += f"Document: {item.metadata['document'].split('/')[-1].rsplit('.', 1)[0]}\n\n"
-            context_formatted += f"Text: {item.metadata['text'].replace('\\n', chr(10))}\n\n"
-            context_formatted += f"These are the entities mentioned in the text: {', '.join([f'{ent['name']} ({ent['id']})' for ent in item.metadata['entities']])}\n\n"
-            context_formatted += f"Page: {item.metadata['page']}\n\n"
+            context_formatted += item.content
             context_formatted += "========================================================\n"
 
         if self.history:
