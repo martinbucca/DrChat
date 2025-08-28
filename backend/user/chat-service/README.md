@@ -1,6 +1,6 @@
 # Chat Service
 
-![GraphRAG Architecture](graphrag-architecture.png)
+![GraphRAG Architecture](img/graphrag-architecture.png)
 
 This service uses the **GraphRAG** pattern to answer user questions. GraphRAG (Graph Retrieval-Augmented Generation) combines graph-based retrieval with generative AI to provide more accurate and context-aware responses.
 
