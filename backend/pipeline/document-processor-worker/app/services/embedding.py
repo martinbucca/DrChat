@@ -1,5 +1,5 @@
-from langchain_huggingface import HuggingFaceEmbeddings
-from app.config import EMBEDDINGS_MODEL
+from app.config import AZURE_OPENAI_API_KEY, AZURE_OPENAI_API_VERSION, AZURE_OPENAI_EMBEDDINGS_MODEL, AZURE_OPENAI_ENDPOINT
+from langchain_openai import AzureOpenAIEmbeddings
 
 class Embedding:
     """
@@ -19,7 +19,7 @@ class Embedding:
     _instance = None
 
     def __init__(self, api_key=None):
-        self._embedder = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL)
+        self._embedder = AzureOpenAIEmbeddings(model=AZURE_OPENAI_EMBEDDINGS_MODEL)
 
     @classmethod
     def get_instance(cls, api_key=None):

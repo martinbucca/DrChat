@@ -23,20 +23,16 @@ class DocumentsProcessor:
         self.graph_builder = graph_builder
 
     # Procesar esto en paralelo (?)
-    def process_files(self, filepaths: list[str]):
-        total_time = time.time()
-        for filepath in filepaths:
-            start_time = time.time()
-            filename = os.path.basename(filepath)
-            print(f"Processing {filename}...")
-            chunks = self.chunker.chunk_document(filepath, filename)
-            print(f" - Chunked into {len(chunks)} pieces.")
-            self.graph_builder.process_chunks(chunks)
-            print(f" - Processed and stored in graph database.")
-            elapsed = time.time() - start_time
-            print(f"Time to process {filename}: {int(elapsed // 60)}m {elapsed % 60:.2f}s")
-        total_elapsed = time.time() - total_time
-        print(f"Total processing time: {int(total_elapsed // 60)}m {total_elapsed % 60:.2f}s")
+    def process_file(self, filepath: str):
+        start_time = time.time()
+        filename = os.path.basename(filepath)
+        print(f"Processing {filename}...")
+        chunks = self.chunker.chunk_document(filepath, filename)
+        print(f" - Chunked into {len(chunks)} pieces.")
+        self.graph_builder.process_chunks(chunks)
+        print(f" - Processed and stored in graph database.")
+        elapsed = time.time() - start_time
+        print(f"Time to process {filename}: {int(elapsed // 60)}m {elapsed % 60:.2f}s")
 
     @classmethod
     def get_instance(cls, chunker, graph_builder):
