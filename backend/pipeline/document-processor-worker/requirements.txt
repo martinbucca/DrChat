@@ -1,0 +1,13 @@
+langchain
+langchain-core
+langchain-community
+langchain-huggingface
+langchain-openai
+langchain-experimental
+langchain-neo4j
+huggingface_hub
+python-dotenv
+nltk
+unstructured
+aiokafka
+
