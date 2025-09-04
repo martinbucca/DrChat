@@ -8,12 +8,12 @@ class Embedding:
     It provides access to the underlying Embeddigg Provider object via the `embedder` property.
     Attributes:
         _instance (Embedding): The singleton instance of the Embedding class.
-        _embedder (HuggingFaceEmbeddings): The embedding provider model instance.
+        _embedder: The embedding provider model instance.
     Args:
         api_key (str, optional): API key for authentication if required by the embedding model.
     Methods:
         get_instance(api_key=None): Returns the singleton instance of the Embedding class.
-        embedder: Property to access the HuggingFaceEmbeddings instance.
+        embedder: Property to access the instance.
     """
 
     _instance = None

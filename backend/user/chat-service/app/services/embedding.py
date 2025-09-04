@@ -1,5 +1,5 @@
-from langchain_huggingface import HuggingFaceEmbeddings
-from app.config import EMBEDDINGS_MODEL
+from app.config import AZURE_OPENAI_API_KEY, AZURE_OPENAI_API_VERSION, AZURE_OPENAI_EMBEDDINGS_MODEL, AZURE_OPENAI_ENDPOINT
+from langchain_openai import AzureOpenAIEmbeddings
 
 class Embedding:
     """
@@ -8,18 +8,18 @@ class Embedding:
     It provides access to the underlying Embeddigg Provider object via the `embedder` property.
     Attributes:
         _instance (Embedding): The singleton instance of the Embedding class.
-        _embedder (HuggingFaceEmbeddings): The embedding provider model instance.
+        _embedder: The embedding provider model instance.
     Args:
         api_key (str, optional): API key for authentication if required by the embedding model.
     Methods:
         get_instance(api_key=None): Returns the singleton instance of the Embedding class.
-        embedder: Property to access the HuggingFaceEmbeddings instance.
+        embedder: Property to access the instance.
     """
 
     _instance = None
 
     def __init__(self, api_key=None):
-        self._embedder = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL)
+        self._embedder = AzureOpenAIEmbeddings(model=AZURE_OPENAI_EMBEDDINGS_MODEL)
 
     @classmethod
     def get_instance(cls, api_key=None):
