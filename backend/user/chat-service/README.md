@@ -75,8 +75,70 @@ The Chat Service processes user messages and generates appropriate responses. It
 - **Response:**
   ```json
   {
-     "answer": "The main reasons for patient-physician discordance in SLE are...",
-     "retriever_result": {...}
+    "answer": "There is no information provided in the context regarding patient-physician discordance in Systemic Lupus Erythematosus (SLE). The context appears to focus on various studies related to kidney disease, cardiovascular health, and environmental exposures, but it does not mention SLE or patient-physician discordance. Therefore, I must state that the answer is uncertain or that context is missing. \n\nIf you provide more context or information about SLE, I'll be happy to help. \n\nIn general, patient-physician discordance in SLE can be caused by various factors, including but not limited to:\n\n* Different perceptions of disease activity and impact\n* Communication gaps\n* Lack of clear treatment goals\n* Insufficient patient education\n\nHowever, without specific information on SLE, I cannot provide a more detailed answer. \n\nPlease let me know if I can assist you further.",
+    "retriever_result": [
+      {
+        "listIds": [
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:618",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:635",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:637",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:638",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:639",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:640",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:686",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:688"
+        ]
+      },
+      {
+        "listIds": [
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:609",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:630",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:631",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:632",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:633",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:635",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:687"
+        ]
+      },
+      {
+        "listIds": [
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:611",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:630",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:631",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:632",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:633",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:636",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:637",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:638",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:642"
+        ]
+      },
+      {
+        "listIds": [
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:615",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:630",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:631",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:632",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:633",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:635",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:636",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:637",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:639",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:640",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:642",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:646"
+        ]
+      },
+      {
+        "listIds": [
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:614",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:630",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:631",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:632",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:633"
+        ]
+      }
+    ]
   }
   ```
 
