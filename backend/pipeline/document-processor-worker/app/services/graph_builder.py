@@ -1,4 +1,5 @@
 # Creating the vector index
+import time
 from neo4j_graphrag.indexes import create_vector_index
 from neo4j_graphrag.indexes import create_fulltext_index
 from neo4j import GraphDatabase
@@ -102,7 +103,7 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
                 if self.entity_relationship_extractor:
                     ner_result = self.entity_relationship_extractor.extract_entities_and_relationships(text)
                     chunk["entities"] = ner_result.get("entities", [])
-                    chunk["relationships"] = ner_result.get("relationships", [])
+                    #chunk["relationships"] = ner_result.get("relationships", [])
                 chunk["tokens"] = len(nltk.word_tokenize(text))
                 try:
                     embedding = self.embedder.embed_query(text)
@@ -140,6 +141,9 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
                         })
 
             chunks[i]['metadata'].pop('orig_elements', None)
+            print(f"Processed chunk {i+1}/{len(chunks)}")
+            time.sleep(2)  # Small delay to avoid rate limit
+
 
         json_data = json.dumps(chunks, indent=4)
         self._load_graph(json_data)

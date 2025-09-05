@@ -55,7 +55,7 @@ async def consume():
 if __name__ == "__main__":
     # ACA TENDRIA QUE IR LA LOGICA PARA LEER ARCHIVO DEL BUCKET.
     # ELIMINAR DIRECTORIO documents (se usa para probar localmente)
-    file_paths = "./app/documents/emmm0003-0701.pdf"
+    file_paths = "./app/documents/fnut-12-1613721.pdf"
     document_processor_instance.process_file(file_paths)
     #asyncio.run(consume())
 
