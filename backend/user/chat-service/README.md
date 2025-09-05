@@ -62,7 +62,9 @@ The Chat Service processes user messages and generates appropriate responses. It
 
 ### `POST /answer_question`
 
-- **Description:** Accepts a question and an optional session ID, returning an answer and retriever result.
+### Backend running on http://localhost:5001
+
+- **Description:** Accepts a question and an optional session ID, returning an answer and retriever result (information retrieved to answer question)
 - **Request Body:**
   ```json
   {
@@ -73,16 +75,21 @@ The Chat Service processes user messages and generates appropriate responses. It
 - **Response:**
   ```json
   {
-     "answer": "The capital of France is Paris.",
+     "answer": "The main reasons for patient-physician discordance in SLE are...",
      "retriever_result": {...}
   }
   ```
 
 - **Example cURL Call:**
   ```sh
-  curl -X POST http://localhost:8000/answer_question \
+  curl -X POST http://localhost:5001/answer_question \
      -H "Content-Type: application/json" \
      -d '{"query": "What is the capital of France?", "session_id": "optional-session-id"}'
   ```
 
 - **Returns:** A JSON object containing the answer and retriever result.
+
+- **Use FastAPI Swagger UI**
+
+1. `http://localhost:5001/docs`
+2. `Try Out` al endpoint POST /answer_question
