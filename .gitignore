@@ -180,6 +180,5 @@ files
 frontend/.env
 frontend/dist/
 frontend/node_modules/
-frontend/yarn.lock
 frontend/package-lock.json
 data/

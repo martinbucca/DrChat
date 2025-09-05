@@ -71,10 +71,11 @@ class Retriever:
         )
 
         # Prepare content string, clear and ready for LLM
+        clean_text = node_text.replace("\n", chr(10))
         content = (
             f"Score: {score}\n\n"
             f"Document: {document.split('/')[-1].rsplit('.', 1)[0]}\n\n"
-            f"Text: {node_text.replace('\\n', chr(10))}\n\n"
+            f"Text: {clean_text}\n\n"
             f"Entities mentioned in the text: {entities_str}\n\n"
             f"Page: {page}\n"
         )
