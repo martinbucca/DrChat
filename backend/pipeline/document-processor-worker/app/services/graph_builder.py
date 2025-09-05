@@ -2,7 +2,7 @@
 from neo4j_graphrag.indexes import create_vector_index
 from neo4j_graphrag.indexes import create_fulltext_index
 from neo4j import GraphDatabase
-from app.config import VECTOR_INDEX_NAME, FULLTEXT_INDEX_NAME
+from app.config import VECTOR_INDEX_NAME, FULLTEXT_INDEX_NAME, VECTOR_DIMENSIONS
 import nltk
 import base64
 import zlib
@@ -163,7 +163,7 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
             VECTOR_INDEX_NAME,
             label="Chunk",
             embedding_property="embedding",
-            dimensions=768,
+            dimensions=VECTOR_DIMENSIONS,
             similarity_fn="cosine",
             fail_if_exists=False,
         )

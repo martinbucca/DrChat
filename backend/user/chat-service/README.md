@@ -32,6 +32,32 @@ The Chat Service processes user messages and generates appropriate responses. It
 
     This will start the service on port `8000`.
 
+## Running With python
+1. **Create virtual env**
+    ```sh
+    python -m venv venv
+    ```
+2. **Activate virtual env**
+    ```sh
+    venv/Scripts/activate
+    ```
+3. **Install requirements**
+    ```sh
+    pip install -r requirements.txt
+    ```
+4. **Run main script**
+  - Try:
+      ```sh
+      cd app
+      python main.py
+      ```
+  - Or in chat-service dir:
+      ```sh
+      python -m app.main
+      ```
+
+
+
 ## API Endpoint
 
 ### `POST /answer_question`
