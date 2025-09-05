@@ -1,14 +1,16 @@
-FROM node:20-alpine
+FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci --silent
 
+# Instalar dependencias
+RUN yarn install
+
+# Copiar el resto del código
 COPY . .
 
-EXPOSE 3000
+# Exponer el puerto usado por yarn dev (por defecto 5173 en Vite)
+EXPOSE 5173
 
-ENV HOST=0.0.0.0
-
-CMD ["npm", "start"]
+# Comando para desarrollo
+CMD ["yarn", "run", "dev", "--host"]

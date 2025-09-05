@@ -172,3 +172,14 @@ google-cloud-cli-linux-x86_64.tar.gz
 .vennv
 newenv
 files
+
+
+# Frontend 
+
+
+frontend/.env
+frontend/dist/
+frontend/node_modules/
+frontend/yarn.lock
+frontend/package-lock.json
+data/
