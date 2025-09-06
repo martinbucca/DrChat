@@ -1,15 +1,18 @@
+# Frontend Dockerfile
 FROM node:18-alpine
 
+# Directorio de trabajo
 WORKDIR /app
 
-
-# Instalar dependencias
+COPY package.json yarn.lock ./
 RUN yarn install
 
 # Copiar el resto del código
 COPY . .
 
-# Exponer el puerto usado por yarn dev (por defecto 5173 en Vite)
+
+
+# Exponer puerto Vite
 EXPOSE 5173
 
 # Comando para desarrollo

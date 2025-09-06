@@ -1,7 +1,9 @@
 import { MoonIconOutline, SunIconOutline, QuestionMarkCircleIconOutline } from '@neo4j-ndl/react/icons';
-import { Typography, IconButton, Tabs, Switch, Logo } from '@neo4j-ndl/react';
+import { Typography, IconButton, Tabs, Switch } from '@neo4j-ndl/react';
 import React, { useState, useCallback } from 'react';
 import { ThemeWrapperContext } from '../../../context/ThemeWrapper';
+import DrChatLogo from '../assets/dr_chat_logo.png';
+
 
 type UserProps = {
   name: string;
@@ -54,19 +56,28 @@ export default function Header({
         id='navigation'
         aria-label='main navigation'
       >
+
         <section className='flex md:flex-row flex-col items-center w-1/6 shrink-0 grow-0'>
+          {/* Logo de DrChat */}
           <div className='md:inline-block'>
-            <Logo className='h-6 min-h-6 min-w-12 md:h-8 md:min-h-12 md:min-w-24 md:mr-2' type='full' />
+            <img
+              src={DrChatLogo}
+              alt='DrChat Logo'
+              className='h-6 min-h-6 min-w-12 md:h-8 md:min-h-12 md:min-w-24 md:mr-2'
+              style={{ objectFit: 'contain' }}
+            />
           </div>
-          <div className='flex justify-center md:ml-0 pl-0'>
-            <Typography className='md:inline-block hidden' variant='h6'>
-              {title}
-            </Typography>
-            <Typography className='md:hidden inline-block' variant='subheading-small'>
-              {title}
-            </Typography>
-          </div>
-        </section>
+
+            {/* Título */}
+            <div className='flex justify-center md:ml-0 pl-0'>
+              <Typography className='md:inline-block hidden' variant='h6'>
+                {title}
+              </Typography>
+              <Typography className='md:hidden inline-block' variant='subheading-small'>
+                {title}
+              </Typography>
+            </div>
+          </section>
 
         <section className='flex w-1/3 shrink-0 grow-0 justify-center items-center mb-[-22px]'>
           <Tabs size='large' fill='underline' onChange={(e) => setActiveNavItem(e)} value={activeNavItem}>
@@ -107,9 +118,7 @@ export default function Header({
                   </span>
                 )}
               </IconButton>
-              <IconButton onClick={() => handleURLClick("https://neo4j.com/labs/neo4j-needle-starterkit/")} className='hidden md:inline-flex' aria-label='Help' isClean size='large' ariaLabel=''>
-                <QuestionMarkCircleIconOutline />
-              </IconButton>
+              
             </div>
           </div>
         </section>

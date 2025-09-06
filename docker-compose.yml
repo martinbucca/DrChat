@@ -1,86 +1,26 @@
 services:
-  # Database services
-  
-  mongodb:
-    image: mongo:7.0
-    container_name: drchat-mongodb
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - drchat-network
-
-  # Backend services
-
-  file-service:
+  chat-service:
     build:
-      context: ./backend/ingestion/file-service
+      context: ./backend/user/chat-service
       dockerfile: Dockerfile
+    container_name: chat-service
     ports:
-      - "8001:8000"  
+      - "5001:5001"
     env_file:
-      - .env
-    environment:
-      - STORAGE_DIR=/app/storage
+      - backend/user/chat-service/.env
     volumes:
-      - ./storage:/app/storage
-    restart: unless-stopped
-    depends_on:
-      - mongodb
-    networks:
-      - drchat-network
-  
-  # document-processor-worker:
-  #   build:
-  #     context: ./backend/pipeline/document-processor-worker
-  #     dockerfile: Dockerfile
-  #   env_file:
-  #     - ./backend/.env
-
-  # entity-relation-extractor-worker:
-  #   build:
-  #     context: ./backend/pipeline/entity-relation-extractor-worker
-  #     dockerfile: Dockerfile
-  #   env_file:
-  #     - ./backend/.env
-
-  # chat-service:
-  #   build:
-  #     context: ./backend/user/chat-service
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8002:8000"
-  #   env_file:
-  #     - ./backend/.env
-
-  # retriever-service:
-  #   build:
-  #     context: ./backend/user/retriever-service
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8003:8000"
-  #   env_file:
-  #     - ./backend/.env
-
-  # Frontend service
+      - ./backend/user/chat-service:/app
+    command: ["python", "-m", "app.main"]
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: frontend
     ports:
-      - "5000:3000"
-    networks:
-      - drchat-network
-
-# Networks
-networks:
-  drchat-network:
-    driver: bridge
-
-# Volumes
-volumes:
-  mongodb_data:
-    driver: local  
+      - "5173:5173"
+    env_file:
+      - frontend/.env
+    volumes:
+      - ./frontend:/app
+    command: ["yarn", "run", "dev", "--host"]

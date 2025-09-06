@@ -68,14 +68,19 @@ The Chat Service processes user messages and generates appropriate responses. It
 - **Request Body:**
   ```json
   {
-     "query": "What are the main reasons for patient-physician discordance in SLE?",
+     "query": "How many participants were included in the final analysis of the study, and what were the main exclusion criteria?",
      "session_id": "optional-session-id"
   }
   ```
 - **Response:**
   ```json
   {
-    "answer": "There is no information provided in the context regarding patient-physician discordance in Systemic Lupus Erythematosus (SLE). The context appears to focus on various studies related to kidney disease, cardiovascular health, and environmental exposures, but it does not mention SLE or patient-physician discordance. Therefore, I must state that the answer is uncertain or that context is missing. \n\nIf you provide more context or information about SLE, I'll be happy to help. \n\nIn general, patient-physician discordance in SLE can be caused by various factors, including but not limited to:\n\n* Different perceptions of disease activity and impact\n* Communication gaps\n* Lack of clear treatment goals\n* Insufficient patient education\n\nHowever, without specific information on SLE, I cannot provide a more detailed answer. \n\nPlease let me know if I can assist you further.",
+    "answer": "The final analysis of the study included 5,221 participants. The main exclusion criteria were:
+    Participants under 20 years old and pregnant women (n =31,152)
+  Those with missing data on heavy metals (n =26,855)
+  Those with incomplete data on TyG, WWI, eGFR, and CKM (n =6,962)
+  These exclusions were applied to the 70,190 participants from the 2005-2018 NHANES database.
+  (Source: Document fnut-12-1613721, Page2)",
     "retriever_result": [
       {
         "listIds": [

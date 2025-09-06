@@ -1,9 +1,10 @@
 /* eslint-disable no-confusing-arrow */
 import { useEffect, useRef, useState } from 'react';
 import { Box, Typography, Flex, IconButton, LoadingSpinner, Drawer } from '@neo4j-ndl/react';
-import { ClockIconOutline } from '@neo4j-ndl/react/icons';
+import { IoCloseOutline } from 'react-icons/io5';
+
 import './Retrieval.css';
-import retrievalIllustration from '../assets/retrieval.png';
+import DrChatLogo from '../assets/dr_chat_logo.png';
 
 import { setDriver, runQuery } from '../utils/Driver';
 
@@ -22,7 +23,21 @@ type CypherProps = {
   password?: string;
 };
 
-function RetrievalInformation({ sources, model, entities, timeTaken }) {
+type ExpandedNode = {
+  properties?: {
+    type?: string;
+    text?: string;
+    name?: string;
+    id?: string;
+    image_base64?: string;
+    text_as_html?: string;
+  };
+  captions?: {
+    labels?: string[];
+  }[];
+};
+
+function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) {
 
   const nvl = useRef<NVL | null>(null);
   const [uri, setURI] = useState(import.meta.env.VITE_NEO4J_URI);
@@ -77,7 +92,27 @@ function RetrievalInformation({ sources, model, entities, timeTaken }) {
 
   function run() {
     const formattedSources = sources.map((source) => `"${source}"`).join(',');
-    console.log(formattedSources);
+    console.log(`[${formattedSources}]`);
+
+    const query1 = `
+    MATCH (a:Chunk)-[r:PART_OF_DOCUMENT]->(b:Document)
+    WHERE elementId(a) in [${formattedSources}]
+    RETURN DISTINCT a,r,b
+    UNION
+    MATCH (a:Chunk)-[r:NEXT_CHUNK]-(b:Chunk)
+    WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
+    RETURN DISTINCT a,r,b
+    UNION
+    MATCH (a:Chunk)-[r:MENTIONS]-(b:Entity)
+    WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
+    RETURN DISTINCT a,r,b
+    UNION
+    MATCH (a:Chunk)-[r:RELATED_CONTENT]->(b:Image|Table)
+    WHERE elementId(a) in [${formattedSources}]
+    RETURN DISTINCT a,r,b
+    LIMIT 500
+    `;
+
     const query2 = `  
     MATCH (a:Chunk)-[r2:PART_OF_DOCUMENT]-(d:Document) WHERE elementId(a) in [${formattedSources}]
     MATCH (a)-[r]-(b)
@@ -85,20 +120,32 @@ function RetrievalInformation({ sources, model, entities, timeTaken }) {
     RETURN a, r, b, r2, d LIMIT 1000
 
     `;
+
     setDriver(uri, username, password).then((isSuccessful) => {
-      runQuery(query2).then((result) => {
+      runQuery(query1).then((result) => {
+
         result.nodes.map((record: any) => {
-          const label = record.labels.includes("Entity") ? record.properties.id : record.labels;
+
+          const label = record.labels.includes('Document')
+            ? record.labels
+            : record.labels.includes('Entity')
+            ? record.properties.text
+            : record.properties.type
+
+
           const color = record.labels.includes('Chunk')
             ? '#0A6190'
             : record.labels.includes('Document')
             ? '#BCF194'
             : record.labels.includes('Entity')
             ? '#B38EFF'
-            : '#FF8E6A';
+            : record.labels.includes('Image')
+            ? '#FFC300'
+            : '#FF8E6A'
+
           setNodes((prevNodes) => [
             ...prevNodes,
-            { id: record.id.toString(), color: color, captions: [{ value: label }], properties: record.properties },
+            { id: record.id.toString(), color: color, captions: [{ value: label, labels: record.labels }], properties: record.properties },
           ]);
         });
 
@@ -119,30 +166,40 @@ function RetrievalInformation({ sources, model, entities, timeTaken }) {
   }
 
   return (
-    <Box className='n-bg-palette-neutral-bg-weak p-4'>
+    <Box className='n-bg-palette-neutral-bg-weak p-4' style={{height: '80vh'}}>
+      <IconButton
+        className='n-size-token-7'
+        ariaLabel='Close modal'
+        onClick={onClose}
+        style={{
+          position: 'absolute',
+          top: 16,   // distancia desde el top del modal
+          right: 16, // distancia desde la derecha del modal
+          zIndex: 2000,
+        }}
+      >
+        <IoCloseOutline size={20} />
+      </IconButton>
       <Flex flexDirection='row' className='flex flex-row p-6 items-center'>
-        <img src={retrievalIllustration} alt='icon' style={{ width: 65, height: 65, marginRight: 10 }} />
+        <img src={DrChatLogo} alt='icon' style={{ width: 95, height: 95, marginRight: 10 }} />
         <Box className='flex flex-col'>
           <Typography variant='h2'>Retrieval information</Typography>
-          <Typography className='mb-2' variant='body-medium'>
-            To generate this response, we used the model <span className='font-bold italic'>{model}</span>.
-            <Typography className='pl-1 italic' variant='body-small'>
-              <ClockIconOutline className='w-4 h-4 inline-block mb-1' /> {timeTaken / 1000} seconds
-            </Typography>
-          </Typography>
         </Box>
       </Flex>
-      <Box className='button-container' sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+      <Box className='button-container' sx={{ display: 'flex', justifyContent: 'space-between', mt: 2}}>
         <div
           style={{
-            margin: 5,
+            margin: 10,
             borderRadius: 25,
-            border: '2px solid #2AADA5',
-            height: 300,
+            border: '2px solid #2A93A0',
+            height: 'calc(80vh - 163px)',
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
             background: `rgb(var(--theme-palette-primary-bg-weaker));`,
             boxShadow: `2px -2px 10px grey`,
             position: 'relative',
-            overflow: 'auto',
+            overflow: 'hidden',
           }}
         >
           <Flex
@@ -175,28 +232,116 @@ function RetrievalInformation({ sources, model, entities, timeTaken }) {
             <></>
           )}
           <InteractiveNvlWrapper
+            className='rounded-5xl overflow-hidden'
             ref={nvl}
             nodes={nodes}
             rels={rels}
             onClick={(evt) => console.log('custom click event', evt)}
             mouseEventCallbacks={mouseEventCallbacks}
+            style={{ flexGrow: 1 }}
             nvlOptions={{
               initialZoom: 0,
               layout: 'd3Force',
               relationshipThreshold: 1,
+              selectedBorderColor: '#F5F5F5',
             }}
           />
-          <Box className='max-w-[300px]'>
-            <Drawer isCloseable={true} isExpanded={isExpanded} position="left" type="overlay" style={{ maxHeight: "100%", overflowY: "auto" }} onExpandedChange={() => {
+          <Box className='max-w-[500px]'>
+            <Drawer isCloseable={true} isExpanded={isExpanded} position="left" type="overlay" className="rounded-tl-5xl rounded-bl-5xl" onExpandedChange={() => {
               handleIsExpanded(false);
             }}>
-              <Drawer.Header>Node details</Drawer.Header>
-              <Drawer.Body className='max-w-[300px]'>
-                {expandedNode?.captions[0]?.value?.includes('Chunk') ? (<Typography variant='h5'>Chunk text: </Typography>) : expandedNode?.captions[0]?.value?.includes('Document') ? (<Typography variant='h5'>Document: </Typography>) : (<Typography variant='h5'>Entity description: </Typography>)}
-                <ReactMarkdown>
-                  {expandedNode?.properties?.text ?? expandedNode?.properties?.fileName ?? expandedNode?.properties?.id}
-                </ReactMarkdown>
-                </Drawer.Body>
+
+              <Drawer.Header>
+                <div>
+                  <Typography variant='mb-2' variant='body-medium'>Node Details</Typography>
+                </div>
+                <div>
+                  {expandedNode?.captions[0]?.labels?.includes('Chunk')
+                  ? (<Typography variant='h5'>Text Chunk</Typography>)
+                  : expandedNode?.captions[0]?.labels?.includes('Document')
+                  ? (<Typography variant='h5'>Document</Typography>)
+                  : expandedNode?.captions[0]?.labels?.includes('Entity')
+                  ? (<Typography variant='h5'>Entity</Typography>)
+                  : expandedNode?.captions[0]?.labels?.includes('Image')
+                  ? (<Typography variant='h5'>Image</Typography>)
+                  : expandedNode?.captions[0]?.labels?.includes('Table')
+                  ? (<Typography variant='h5'>Table</Typography>)
+                  : (<Typography variant='h5'>Other</Typography>)}
+                </div>
+              </Drawer.Header>
+              <Drawer.Body className="max-w-[500px] pl-5">
+                {/* NarrativeText Rendering */}
+                {expandedNode?.properties?.type === 'NarrativeText' && (
+                  <>
+                  <figcaption className="caption-top text-xs mb-2">narrative_text</figcaption>
+                  <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
+                    {expandedNode.properties.text ?? expandedNode.properties.name ?? expandedNode.properties.id}
+                  </ReactMarkdown>
+                  </>
+                )}
+
+                {/* Document or Entity Labels */}
+                {(expandedNode?.captions?.[0]?.labels?.includes('Document') ||
+                  expandedNode?.captions?.[0]?.labels?.includes('Entity')) && (
+                  <>
+                  <figcaption className="caption-top text-xs mb-2">name</figcaption>
+                  <div style={{ overflowWrap: 'break-word', width: '250px' }}>
+                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
+                      {expandedNode.properties.text ?? expandedNode.properties.name ?? expandedNode.properties.id}
+                    </ReactMarkdown>
+                  </div>
+                  </>
+                )}
+
+                {/* Image Rendering */}
+                {expandedNode?.properties?.type === 'Image' && (
+                  <>
+                    <figcaption className="caption-top text-xs mb-2">image_base64</figcaption>
+                    <img
+                      src={`data:image/png;base64,${expandedNode.properties.image_base64}`}
+                      alt="Preview"
+                      className="max-w-full object-top overflow-auto"
+                    />
+                  </>
+                )}
+
+                {/* OCR Text for Image */}
+                {expandedNode?.properties?.type === 'Image' && expandedNode.properties?.text && (
+                  <>
+                    <figcaption className="caption-top text-xs mt-4 mb-2">ocr_text</figcaption>
+                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
+                      {expandedNode.properties.text}
+                    </ReactMarkdown>
+                  </>
+                )}
+
+                {/* Table Image */}
+                {expandedNode?.properties?.type === 'Table' && (
+                  <>
+                    <figcaption className="caption-top text-xs mb-2">image_base64</figcaption>
+                    <img
+                      src={`data:image/png;base64,${expandedNode.properties.image_base64}`}
+                      alt="Preview"
+                      className="max-w-full object-top overflow-auto"
+                    />
+                  </>
+                )}
+
+                {/* Table HTML Rendering */}
+                {expandedNode?.properties?.type === 'Table' && (
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: `
+                        <div class="caption-top text-xs mt-4 mb-2">text_as_html</div>
+                        <div>
+                          ${expandedNode.properties.text_as_html}
+                        </div>
+                      `,
+                    }}
+                    className="max-w-full object-top overflow-auto"
+                  />
+                )}
+              </Drawer.Body>
             </Drawer>
           </Box>
         </div>

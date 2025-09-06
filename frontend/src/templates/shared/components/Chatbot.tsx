@@ -19,7 +19,10 @@ import {
 } from '@neo4j-ndl/react/icons';
 import { useCopyToClipboard } from '@neo4j-ndl/react';
 
-import ChatBotAvatar from '../assets/chatbot-ai.png';
+import { PiGraphBold } from "react-icons/pi";
+
+
+import ChatBotAvatar from '../assets/dr_chat_logo.png';
 
 import './Chatbot.css';
 import ReactMarkdown from 'react-markdown';
@@ -274,7 +277,7 @@ How can I help you today?`,
   return (
     <>
       <Header
-        title='Aura AMA'
+        title='DrChat'
         useNeo4jConnect={false}
       />
       <div className='n-bg-palette-neutral-bg-default flex flex-col justify-between min-h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] overflow-hidden'>
@@ -344,20 +347,6 @@ How can I help you today?`,
                                 <>
                                   <IconButton
                                     isClean
-                                    isDisabled={loadingPlaying || loading}
-                                    ariaLabel='Search Icon'
-                                    onClick={() => {
-                                      setLoadingPlaying(true);
-                                      chatBotVoice(chat.message).then((url) => {
-                                        setLoadingPlaying(false);
-                                        playAudio(url);
-                                      });
-                                    }}
-                                  >
-                                    <SpeakerWaveIconOutline className='w-4 h-4 inline-block' />
-                                  </IconButton>
-                                  <IconButton
-                                    isClean
                                     ariaLabel='Search Icon'
                                     onClick={() => {
                                       setEntitiesModal(chat.entities ?? []);
@@ -368,7 +357,7 @@ How can I help you today?`,
                                     }}
                                     isDisabled={loading}
                                   >
-                                    <InformationCircleIconOutline className='w-4 h-4 inline-block' />
+                                    <PiGraphBold className='w-4 h-4 inline-block' />
                                   </IconButton>
                                   <IconButton isDisabled={loading} isClean ariaLabel='Search Icon' onClick={() => copy(chat.message)}>
                                     <ClipboardDocumentIconOutline className='w-4 h-4 inline-block' />
@@ -401,24 +390,7 @@ How can I help you today?`,
                                   </IconButton>
                                 </>
                               ) : (
-                                <>
-                                  <IconButton
-                                    isClean
-                                    isDisabled={loadingPlaying}
-                                    ariaLabel='Search Icon'
-                                    onClick={() => {
-                                      setLoadingPlaying(true);
-                                      chatBotVoice(
-                                        listMessages[0].message
-                                      ).then((url) => {
-                                        setLoadingPlaying(false);
-                                        playAudio(url);
-                                      });
-                                    }}
-                                  >
-                                    <SpeakerWaveIconOutline className='w-4 h-4 inline-block' />
-                                  </IconButton>
-                                </>
+                                <>                                </>
                               )}
                             </div>
                           ) : (
@@ -457,6 +429,7 @@ How can I help you today?`,
                 entities={entitiesModal}
                 model={modelModal}
                 timeTaken={timeTaken}
+                onClose={handleCloseModal}
               />
             </Modal>
       </div>
