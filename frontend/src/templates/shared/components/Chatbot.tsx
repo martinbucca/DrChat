@@ -261,11 +261,9 @@ export default function Chatbot(props: ChatbotProps) {
   useEffect(() => {
     const initialMessage = {
       id: 1,
-      message: `Hello! I am an Aura expert, 
-      
-I can help you answer any questions you might have on Neo4j Aura. 
-
-How can I help you today?`,
+      message: `Hello! I’m DrChat, your AI assistant for exploring and understanding medical documents. 
+      Ask me anything, and I’ll provide accurate, source-backed answers to help you make informed decisions. 
+      How can I assist you today?`,
       user: 'chatbot',
       datetime: '01/01/2024 00:00:00',
       typeMessage: 'First',

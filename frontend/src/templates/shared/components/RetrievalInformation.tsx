@@ -129,7 +129,7 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
           const label = record.labels.includes('Document')
             ? record.labels
             : record.labels.includes('Entity')
-            ? record.properties.text
+            ? record.properties.name
             : record.properties.type
 
 
@@ -273,10 +273,10 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
                 {/* NarrativeText Rendering */}
                 {expandedNode?.properties?.type === 'NarrativeText' && (
                   <>
-                  <figcaption className="caption-top text-xs mb-2">narrative_text</figcaption>
-                  <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                    {expandedNode.properties.text ?? expandedNode.properties.name ?? expandedNode.properties.id}
-                  </ReactMarkdown>
+                    <figcaption className="caption-top text-xs mb-2">narrative_text</figcaption>
+                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
+                      {expandedNode.properties.text ?? expandedNode.properties.name ?? expandedNode.properties.id}
+                    </ReactMarkdown>
                   </>
                 )}
 
