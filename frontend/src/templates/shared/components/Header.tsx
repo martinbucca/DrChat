@@ -3,6 +3,7 @@ import { Typography, IconButton, Tabs, Switch } from '@neo4j-ndl/react';
 import React, { useState, useCallback } from 'react';
 import { ThemeWrapperContext } from '../../../context/ThemeWrapper';
 import DrChatLogo from '../assets/dr_chat_logo.png';
+import User from './User';
 
 
 type UserProps = {
@@ -107,6 +108,8 @@ export default function Header({
                   labelBefore={true}
                 />
               ) : null}
+              <User />
+
               <IconButton aria-label='Toggle Dark mode' isClean size='large' onClick={toggleColorMode} ariaLabel=''>
                 {themeMode === 'dark' ? (
                   <span role='img' aria-label='sun'>
@@ -118,6 +121,7 @@ export default function Header({
                   </span>
                 )}
               </IconButton>
+              
               
             </div>
           </div>
