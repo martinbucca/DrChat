@@ -16,6 +16,8 @@ import {
   ArrowPathIconOutline,
   SpeakerWaveIconOutline,
   InformationCircleIconOutline,
+  HandThumbDownIconOutline,
+  HandThumbUpIconOutline,
 } from '@neo4j-ndl/react/icons';
 import { useCopyToClipboard } from '@neo4j-ndl/react';
 
@@ -386,6 +388,12 @@ export default function Chatbot(props: ChatbotProps) {
                                       }}
                                     />
                                   </IconButton>
+                                  <IconButton isClean ariaLabel='Search Icon'>
+                                    <HandThumbUpIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
+                                  </IconButton>
+                                  <IconButton isClean ariaLabel='Search Icon'>
+                                    <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
+                                  </IconButton>
                                 </>
                               ) : (
                                 <>                                </>
@@ -409,6 +417,11 @@ export default function Chatbot(props: ChatbotProps) {
                   value={inputMessage}
                   isFluid
                   onChange={handleInputChange}
+                  htmlAttributes={{
+                    type: 'text',
+                    'aria-label': 'Chatbot Input',
+                    placeholder: 'Type your message...',
+                  }}
                 />
 
                 <Button type='submit'>Submit</Button>
