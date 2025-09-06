@@ -1,4 +1,14 @@
 services:
+  db:
+    image: postgres:15
+    container_name: user-db
+    environment:
+      POSTGRES_DB: drchat
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
   chat-service:
     build:
       context: ./backend/user/chat-service
@@ -24,3 +34,21 @@ services:
     volumes:
       - ./frontend:/app
     command: ["yarn", "run", "dev", "--host"]
+
+  user-service:
+    build:
+      context: ./backend/user/user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql+psycopg://app:secret@db:5432/drchat
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./backend/user/user-service:/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5002", "--reload"]
+
+volumes:
+  pgdata:

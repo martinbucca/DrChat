@@ -1,20 +1,43 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Menu, Typography, IconButton, Avatar } from '@neo4j-ndl/react';
 import { ChevronDownIconOutline } from '@neo4j-ndl/react/icons';
+import { useNavigate } from 'react-router-dom';
 
 const settings = ['Logout'];
+
+type StoredUser = { name?: string; email?: string };
 
 export default function User() {
   const anchorEl = useRef<HTMLButtonElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<StoredUser | null>(null);
+  const navigate = useNavigate();
   const handleClose = () => {
     setIsOpen(false);
   };
 
   const menuSelect = (e: string) => {
-    window.alert(e);
+    if (e === 'Logout') {
+      localStorage.removeItem('user');
+      handleClose();
+      navigate('/login');
+      return;
+    }
     handleClose();
   };
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        setUser(JSON.parse(stored));
+      } else {
+        setUser(null);
+      }
+    } catch (_) {
+      setUser(null);
+    }
+  }, []);
 
 return (
     <div
@@ -22,14 +45,14 @@ return (
         md:flex md:p-1.5 md:gap-2 md:h-12 md:items-center
         md:border md:border-[rgb(var(--theme-palette-neutral-border-strong))] md:rounded-xl'
     >
-        <Avatar className='md:flex hidden' name='M' size='large' type='letters' shape='square' />
+        <Avatar className='md:flex hidden' name={(user?.name || user?.email || 'U')[0]} size='large' type='letters' shape='square' />
         <div className='flex flex-col'>
             <Typography variant='body-medium' className='p-0.5'>
-                Martin Bucca
+                {user?.name || user?.email || 'Usuario'}
             </Typography>
 
             <Typography variant='body-small' className='p-0.5'>
-                mbucca@fi.uba.ar
+                {user?.email || ''}
             </Typography>
             <Menu className='mt-11 ml-12' isOpen={isOpen} anchorRef={anchorEl} onClose={handleClose}>
                 <Menu.Items>

@@ -6,6 +6,7 @@ import ThemeWrapper from './context/ThemeWrapper';
 
 import PageNotFound from './templates/shared/components/PageNotFound';
 import Chatbot from './templates/shared/components/Chatbot';
+import Login from './templates/shared/components/Login';
 import messagesData from './templates/shared/assets/ChatbotMessages.json';
 
 import './ConnectionModal.css';
@@ -23,6 +24,7 @@ function App() {
 
             }
           />
+          <Route path='/login' element={<Login />} />
           <Route path='*' element={<PageNotFound />} />
         </Routes>
       </ThemeWrapper>

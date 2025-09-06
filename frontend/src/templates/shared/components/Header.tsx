@@ -108,7 +108,7 @@ export default function Header({
                   labelBefore={true}
                 />
               ) : null}
-              <User />
+              {userHeader ? <User /> : null}
 
               <IconButton aria-label='Toggle Dark mode' isClean size='large' onClick={toggleColorMode} ariaLabel=''>
                 {themeMode === 'dark' ? (
@@ -121,8 +121,7 @@ export default function Header({
                   </span>
                 )}
               </IconButton>
-              
-              
+
             </div>
           </div>
         </section>

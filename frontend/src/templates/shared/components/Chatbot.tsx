@@ -37,6 +37,7 @@ import axios from 'axios';
 import RetrievalInformation from './RetrievalInformation';
 
 import Header from './Header';
+import { useNavigate } from 'react-router-dom';
 
 const url = () => {
   let url = window.location.href.replace('3001', '8000');
@@ -91,6 +92,7 @@ const chatBotAPI = async (question: string, sessionId?: string) => {
 
 export default function Chatbot(props: ChatbotProps) {
   const { messages } = props;
+  const navigate = useNavigate();
   const [listMessages, setListMessages] = useState<ChatbotProps['messages']>([]);
   const [inputMessage, setInputMessage] = useState('');
   const formattedTextStyle = { color: 'rgb(var(--theme-palette-discovery-bg-strong))' };
@@ -238,6 +240,14 @@ export default function Chatbot(props: ChatbotProps) {
   const scrollToBottom = () => {
     //messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    // Minimal guard: if no user stored, go to login
+    const stored = localStorage.getItem('user');
+    if (!stored) {
+      navigate('/login', { replace: true });
+    }
+  }, [navigate]);
 
   useEffect(() => {
     scrollToBottom();
