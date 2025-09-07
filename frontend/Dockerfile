@@ -1,19 +1,20 @@
-# Frontend Dockerfile
-FROM node:18-alpine
+# Dockerfile.dev
+FROM node:20-alpine
 
-# Directorio de trabajo
+# Crear carpeta de la app
 WORKDIR /app
 
+# Copiar package.json y yarn.lock para instalar dependencias
 COPY package.json yarn.lock ./
+
+# Instalar dependencias dentro del contenedor
 RUN yarn install
 
-# Copiar el resto del código
+# Copiar todo el código
 COPY . .
 
-
-
-# Exponer puerto Vite
+# Exponer el puerto de Vite
 EXPOSE 5173
 
-# Comando para desarrollo
-CMD ["yarn", "run", "dev", "--host"]
+# Comando de desarrollo
+CMD ["yarn", "dev", "--host"]
