@@ -5,6 +5,7 @@ from neo4j_graphrag.retrievers.base import Retriever
 from langchain.prompts import PromptTemplate
 from neo4j_graphrag.types import RetrieverResult, RetrieverResultItem, LLMMessage
 from app.services.rag_result import RagResult
+from app.services.chat_history import ChatMessageHistory
 class GraphRAGPipeline:
     """
     GraphRAGPipeline orchestrates a Retrieval-Augmented Generation (RAG) workflow. 
@@ -59,10 +60,10 @@ Answer:
         self,
         llm: ChatOpenAI,
         retriever: Retriever,
+        history: ChatMessageHistory,
         prompt_template: PromptTemplate = None,
         default_response: str = "No relevant information found.",
         result_formatter: Optional[Callable[[Any], RetrieverResultItem]] = None,
-        history: Optional[MessageHistory] = None,
     ):
         self.llm = llm
         self.retriever = retriever
@@ -94,13 +95,10 @@ Answer:
             context_formatted += "========================================================\n"
 
         if self.history:
-            messages = self.history.messages
+            messages = self.history.messages(session_id)
             formatted_history = ""
             for msg in messages:
-                # Aceptamos tanto LLMMessage como dict
-                role = msg["role"]
-                content = msg["content"]
-                formatted_history += f"{role}: {content}\n"
+                formatted_history += f"{msg.role}: {msg.content}\n"
 
         prompt = self.prompt_template.format(
             query_text=query_text,
