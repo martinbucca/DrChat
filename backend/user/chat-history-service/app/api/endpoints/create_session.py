@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import HTTPException
 from app.api.requests.create_session_request import CreateSessionRequest
 
@@ -29,20 +30,24 @@ class CreateSessionEndpoint:
                     )
                     if result.single():
                         raise HTTPException(status_code=400, detail="Session ID already exists")
+                    
+                    created_at = datetime.now()
 
                     session.run(
                         """
                         MERGE (u:User {id: $user_id})
-                        MERGE (s:Session {id: $session_id, name: $session_name, created_at: datetime()})
+                        MERGE (s:Session {id: $session_id, name: $session_name, created_at: $created_at})
                         MERGE (u)-[:HAS_SESSION]->(s)
                         """,
                         user_id=user_id,
                         session_id=session_id,
-                        session_name=session_name
+                        session_name=session_name, 
+                        created_at=created_at
                     )
 
                 return {
                     "session_id": session_id,
+                    "created_at": created_at,
                     "message": "Sesión creada exitosamente"
                 }
             except Exception as e:
