@@ -69,7 +69,8 @@ The Chat Service processes user messages and generates appropriate responses. It
   ```json
   {
      "query": "How many participants were included in the final analysis of the study, and what were the main exclusion criteria?",
-     "session_id": "optional-session-id"
+     "session_id": "optional-session-id",
+     "created_at": "2025-09-09T15:03:34.804743"
   }
   ```
 - **Response:**

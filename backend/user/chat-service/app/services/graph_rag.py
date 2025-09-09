@@ -77,10 +77,11 @@ Answer:
         self,
         query_text: str,
         session_id: Optional[str] = None,
+        created_at: Optional[str] = None,
         retriever_config: Optional[dict] = None,
     ) -> RagResult:
         
-        self.history.add_message(LLMMessage(role="user", content=query_text), session_id)
+        self.history.add_message(LLMMessage(role="user", content=query_text), session_id, created_at)
 
         retriever_config = retriever_config or {}
         retriever_result: RetrieverResult = self.retriever.search(
@@ -118,12 +119,13 @@ Answer:
 
         llm_response = self.llm.invoke(prompt)
 
-        self.history.add_message(LLMMessage(role="ai", content=llm_response.content), session_id)
+        created_at = self.history.add_message(LLMMessage(role="ai", content=llm_response.content), session_id)
         print(f"Answer: {llm_response.content}")
 
         return RagResult(
             answer=llm_response.content,
-            retriever_result=retriever_result
+            retriever_result=retriever_result,
+            created_at=created_at
         )
 
 

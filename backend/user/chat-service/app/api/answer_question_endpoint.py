@@ -29,12 +29,14 @@ class AnswerQuestionEndpoint:
                     raise HTTPException(status_code=400, detail="Consulta inválida")
                 session_id = request.session_id
                 question = request.query
-                result = self._graphrag.search(question, session_id)
+                created_at = request.created_at
+                result = self._graphrag.search(question, session_id, created_at)
                 answer = result.answer
                 retriever_result = result.retriever_result
+                answer_created_at = result.created_at
                 retriever_nodes = []
                 for item in retriever_result.items:
                     retriever_nodes.append(item.metadata)
-                return {"answer": answer, "retriever_result": retriever_nodes}
+                return {"answer": answer, "retriever_result": retriever_nodes, "answer_created_at": answer_created_at}
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")

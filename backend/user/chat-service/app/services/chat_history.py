@@ -65,7 +65,7 @@ class ChatMessageHistory():
             return []
 
 
-    def add_message(self, message: LLMMessage, session_id: str) -> None:
+    def add_message(self, message: LLMMessage, session_id: str, created_at: str= None) -> str:
         """Add a message to the message history.
 
         Args:
@@ -73,8 +73,11 @@ class ChatMessageHistory():
             session_id (str): The session identifier to which the message belongs.
         """
         try:
-            created_at = datetime.datetime.now()
-            result = self._driver.execute_query(
+            if created_at is None:
+                created_at = datetime.datetime.now()
+            else:
+                created_at = datetime.datetime.fromisoformat(created_at)
+            self._driver.execute_query(
                 query_=ADD_MESSAGE_QUERY,   
                 parameters_={
                     "session_id": session_id,
@@ -83,6 +86,9 @@ class ChatMessageHistory():
                     "createdAt": created_at,
                 },
             )
+            if isinstance(created_at, datetime.datetime):
+                return created_at.isoformat()
+            return created_at
         except neo4j.exceptions.Neo4jError as e:
             raise Exception(f"Error adding message to history: {e}")
 

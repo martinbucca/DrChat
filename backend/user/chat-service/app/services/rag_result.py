@@ -11,4 +11,5 @@ class RagResult(BaseModel):
         retriever_result (Optional[RetrieverResult]): The result returned by the retriever component, if available.
     """
     answer: str
+    created_at: Optional[str] = None
     retriever_result: Optional[RetrieverResult] = None
