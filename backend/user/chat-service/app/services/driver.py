@@ -19,16 +19,9 @@ class Neo4jDriver:
             Closes the Neo4j driver connection if it exists.
     """
     
-    _instance = None
 
     def __init__(self, uri, username, password):
         self._driver = GraphDatabase.driver(uri, auth=(username, password))
-
-    @classmethod
-    def get_instance(cls, uri=None, username=None, password=None):
-        if cls._instance is None:
-            cls._instance = cls(uri, username, password)
-        return cls._instance
 
     @property
     def driver(self):

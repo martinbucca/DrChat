@@ -1,8 +1,7 @@
 import datetime
-from typing import List, Optional, Literal
+from typing import List, Literal
 from typing_extensions import TypedDict
 import neo4j
-from pydantic import PositiveInt
 
 WINDOW = 6
 
@@ -12,15 +11,15 @@ class LLMMessage(TypedDict):
 
 
 GET_MESSAGES_QUERY = (
-    "MATCH (s:Session)-[:LAST_MESSAGE]->(last_message) "
-    "WHERE s.id = $session_id MATCH p=(last_message)<-[:NEXT*0.."
+    "MATCH (s:`Session`)-[:LAST_MESSAGE]->(last_message) "
+    "WHERE s.id = $session_id OPTIONAL MATCH p=(last_message)<-[:NEXT*0.."
     "{window}]-() WITH p, length(p) AS length "
     "ORDER BY length DESC LIMIT 1 UNWIND reverse(nodes(p)) AS node "
     "RETURN {{data:{{content: node.content}}, role:node.role}} AS result"
 )
 
 ADD_MESSAGE_QUERY = (
-    "MATCH (s:Session) WHERE s.id = $session_id "
+    "MATCH (s:`Session`) WHERE s.id = $session_id "
     "OPTIONAL MATCH (s)-[lm:LAST_MESSAGE]->(last_message) "
     "CREATE (s)-[:LAST_MESSAGE]->(new:Message) "
     "SET new.role = $role, new.content = $content, new.createdAt = $createdAt "
@@ -48,7 +47,6 @@ class ChatMessageHistory():
         self._driver = driver
         self._window = window - 1
 
-    @property
     def messages(self, session_id: str) -> List[LLMMessage]:
         try:
             result = self._driver.execute_query(
@@ -76,13 +74,13 @@ class ChatMessageHistory():
         """
         try:
             created_at = datetime.datetime.now()
-            self._driver.execute_query(
-                query_=ADD_MESSAGE_QUERY,
+            result = self._driver.execute_query(
+                query_=ADD_MESSAGE_QUERY,   
                 parameters_={
+                    "session_id": session_id,
                     "role": message["role"],
                     "content": message["content"],
                     "createdAt": created_at,
-                    "session_id": session_id,
                 },
             )
         except neo4j.exceptions.Neo4jError as e:

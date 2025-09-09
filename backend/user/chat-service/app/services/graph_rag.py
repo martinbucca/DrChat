@@ -3,7 +3,8 @@ from neo4j_graphrag.message_history import MessageHistory
 from typing import Optional, Callable, Any
 from neo4j_graphrag.retrievers.base import Retriever
 from langchain.prompts import PromptTemplate
-from neo4j_graphrag.types import RetrieverResult, RetrieverResultItem, LLMMessage
+from neo4j_graphrag.types import RetrieverResult, RetrieverResultItem
+from app.services.chat_history import LLMMessage
 from app.services.rag_result import RagResult
 from app.services.chat_history import ChatMessageHistory
 class GraphRAGPipeline:
@@ -78,6 +79,9 @@ Answer:
         session_id: Optional[str] = None,
         retriever_config: Optional[dict] = None,
     ) -> RagResult:
+        
+        self.history.add_message(LLMMessage(role="user", content=query_text), session_id)
+
         retriever_config = retriever_config or {}
         retriever_result: RetrieverResult = self.retriever.search(
             query_text=query_text,
@@ -98,7 +102,9 @@ Answer:
             messages = self.history.messages(session_id)
             formatted_history = ""
             for msg in messages:
-                formatted_history += f"{msg.role}: {msg.content}\n"
+                formatted_history += f"{msg['role']}: {msg['content']}\n"
+            if formatted_history == "":
+                formatted_history = "No previous messages."
 
         prompt = self.prompt_template.format(
             query_text=query_text,
@@ -112,8 +118,7 @@ Answer:
 
         llm_response = self.llm.invoke(prompt)
 
-        self.history.add_message(LLMMessage(role="user", content=query_text))
-        self.history.add_message(LLMMessage(role="assistant", content=llm_response.content))
+        self.history.add_message(LLMMessage(role="ai", content=llm_response.content), session_id)
         print(f"Answer: {llm_response.content}")
 
         return RagResult(
