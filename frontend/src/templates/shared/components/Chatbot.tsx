@@ -117,7 +117,7 @@ export default function Chatbot(props: ChatbotProps) {
   const [negativeFeedbackMessage, setNegativefeedbackMessage] = useState<string>('');
   const [loadingFeedback, setLoadingFeedback] = useState<boolean>(false);
   const [audioUrl, setAudioUrl] = useState<AudioInfo[]>([]);
-  const [sessionId, setSessionId] = useState<string>('1');
+  const [sessionId, setSessionId] = useState<string>(uuidv4());
   const [loadingPlaying, setLoadingPlaying] = useState<boolean>(false);
   const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
   const handleCloseModal = () => setIsOpenModal(false);
@@ -274,7 +274,7 @@ export default function Chatbot(props: ChatbotProps) {
 
   useEffect(() => {
     if (!sessionStorage.getItem('session_id')) {
-      const id = '1';
+      const id = uuidv4();
       setSessionId(id);
       sessionStorage.setItem('session_id', id);
     }
