@@ -399,7 +399,8 @@ export default function Chatbot(props: ChatbotProps) {
                                         setListMessages((msgs) =>
                                           msgs.map((msg) => (msg.id === chat.id ? { ...msg, message: '' } : msg))
                                         );
-                                        const callAxios = await chatBotAPI(chat.message, sessionId, chat.datetime);
+                                        const date = new Date();
+                                        const callAxios = await chatBotAPI(chat.message, sessionId, toLocalISOString(date));
                                         const chatresponse = callAxios.response;
                                         let chatbotReply = chatresponse.answer;
                                         let answerCreatedAt = chatresponse.createdAt;
