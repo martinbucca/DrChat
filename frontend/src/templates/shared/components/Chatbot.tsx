@@ -13,7 +13,6 @@ import {
 
 import {
   ClipboardDocumentIconOutline,
-  ArrowPathIconOutline,
   SpeakerWaveIconOutline,
   InformationCircleIconOutline,
   HandThumbDownIconOutline,
@@ -384,46 +383,40 @@ export default function Chatbot(props: ChatbotProps) {
                                       setTimeTaken(chat.timeTaken ?? 0);
                                       setIsOpenModal(true);
                                     }}
-                                    isDisabled={loading}
+                                    isDisabled={loading || chat.isTyping || !chat.sources || chat.sources.length === 0}
                                   >
                                     <PiGraphBold className='w-4 h-4 inline-block' />
                                   </IconButton>
-                                  <IconButton isDisabled={loading} isClean ariaLabel='Search Icon' onClick={() => copy(chat.message)}>
+                                  <IconButton
+                                    isDisabled={loading || chat.isTyping}
+                                    isClean
+                                    ariaLabel='Play Icon'
+                                    onClick={async () => {
+                                      setLoadingPlaying(true);
+                                      if (audioUrl.find((audio) => audio.id === chat.id)) {
+                                        playAudio(audioUrl.find((audio) => audio.id === chat.id)?.URL);
+                                        setLoadingPlaying(false);
+                                      }
+                                      const url = await chatBotVoice(chat.message);
+                                      setAudioUrl((audios) => [...audios, { id: chat.id, URL: url }]);
+                                      playAudio(url);
+                                      setLoadingPlaying(false);
+                                    }}
+                                  >
+                                    {loadingPlaying ? (
+                                      <LoadingSpinner className='w-4 h-4 inline-block' />
+                                    ) : (
+                                      <SpeakerWaveIconOutline className='w-4 h-4 inline-block' />
+                                    )}
+                                  </IconButton>
+                                  <IconButton isDisabled={loading || chat.isTyping} isClean ariaLabel='Copy Icon' onClick={() => copy(chat.message)}>
                                     <ClipboardDocumentIconOutline className='w-4 h-4 inline-block' />
                                   </IconButton>
-                                  <IconButton isDisabled={loading} isClean ariaLabel='Search Icon'>
-                                    <ArrowPathIconOutline
-                                      className='w-4 h-4 inline-block'
-                                      onClick={async () => {
-                                        setLoading(true);
-                                        setListMessages((msgs) =>
-                                          msgs.map((msg) => (msg.id === chat.id ? { ...msg, message: '' } : msg))
-                                        );
-                                        const date = new Date();
-                                        const callAxios = await chatBotAPI(chat.message, sessionId, toLocalISOString(date));
-                                        const chatresponse = callAxios.response;
-                                        let chatbotReply = chatresponse.answer;
-                                        let answerCreatedAt = chatresponse.createdAt;
-                                        const chatSources = chatresponse.retriever_result.map((source: { id: string }) => source.id);
-                                        const chatModel = 'OpenAI GPT 4';
-                                        const chatEntities = chatresponse.retriever_result;
-                                        const chatTimeTaken = callAxios.timeTaken;
-                                        simulateTypingEffect({
-                                          reply: chatbotReply,
-                                          entities: chatEntities,
-                                          model: chatModel,
-                                          sources: chatSources,
-                                          timeTaken: chatTimeTaken,
-                                          createdAt: answerCreatedAt,
-                                        });
-                                        setLoading(false);
-                                      }}
-                                    />
-                                  </IconButton>
-                                  <IconButton isClean ariaLabel='Search Icon'>
+
+                                  <IconButton isDisabled={loading || chat.isTyping} isClean ariaLabel='Like Icon'>
                                     <HandThumbUpIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
                                   </IconButton>
-                                  <IconButton isClean ariaLabel='Search Icon'>
+                                  <IconButton isDisabled={loading || chat.isTyping} isClean ariaLabel='Dislike Icon'>
                                     <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
                                   </IconButton>
                                 </>
