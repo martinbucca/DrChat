@@ -3,8 +3,10 @@ from neo4j_graphrag.message_history import MessageHistory
 from typing import Optional, Callable, Any
 from neo4j_graphrag.retrievers.base import Retriever
 from langchain.prompts import PromptTemplate
-from neo4j_graphrag.types import RetrieverResult, RetrieverResultItem, LLMMessage
+from neo4j_graphrag.types import RetrieverResult, RetrieverResultItem
+from app.services.chat_history import LLMMessage
 from app.services.rag_result import RagResult
+from app.services.chat_history import ChatMessageHistory
 class GraphRAGPipeline:
     """
     GraphRAGPipeline orchestrates a Retrieval-Augmented Generation (RAG) workflow. 
@@ -59,10 +61,10 @@ Answer:
         self,
         llm: ChatOpenAI,
         retriever: Retriever,
+        history: ChatMessageHistory,
         prompt_template: PromptTemplate = None,
         default_response: str = "No relevant information found.",
         result_formatter: Optional[Callable[[Any], RetrieverResultItem]] = None,
-        history: Optional[MessageHistory] = None,
     ):
         self.llm = llm
         self.retriever = retriever
@@ -75,8 +77,12 @@ Answer:
         self,
         query_text: str,
         session_id: Optional[str] = None,
+        created_at: Optional[str] = None,
         retriever_config: Optional[dict] = None,
     ) -> RagResult:
+        
+        self.history.add_message(LLMMessage(role="user", content=query_text), session_id, created_at)
+
         retriever_config = retriever_config or {}
         retriever_result: RetrieverResult = self.retriever.search(
             query_text=query_text,
@@ -94,13 +100,12 @@ Answer:
             context_formatted += "========================================================\n"
 
         if self.history:
-            messages = self.history.messages
+            messages = self.history.messages(session_id)
             formatted_history = ""
             for msg in messages:
-                # Aceptamos tanto LLMMessage como dict
-                role = msg["role"]
-                content = msg["content"]
-                formatted_history += f"{role}: {content}\n"
+                formatted_history += f"{msg['role']}: {msg['content']}\n"
+            if formatted_history == "":
+                formatted_history = "No previous messages."
 
         prompt = self.prompt_template.format(
             query_text=query_text,
@@ -114,13 +119,13 @@ Answer:
 
         llm_response = self.llm.invoke(prompt)
 
-        self.history.add_message(LLMMessage(role="user", content=query_text))
-        self.history.add_message(LLMMessage(role="assistant", content=llm_response.content))
+        created_at = self.history.add_message(LLMMessage(role="ai", content=llm_response.content), session_id)
         print(f"Answer: {llm_response.content}")
 
         return RagResult(
             answer=llm_response.content,
-            retriever_result=retriever_result
+            retriever_result=retriever_result,
+            created_at=created_at
         )
 
 

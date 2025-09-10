@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from app.api.query_request import QueryRequest
+from app.services.chat_history import LLMMessage
 
 class AnswerQuestionEndpoint:
     """
@@ -27,12 +28,15 @@ class AnswerQuestionEndpoint:
                 if not request.query or not request.query.strip():
                     raise HTTPException(status_code=400, detail="Consulta inválida")
                 session_id = request.session_id
-                result = self._graphrag.search(request.query, session_id)
+                question = request.query
+                created_at = request.created_at
+                result = self._graphrag.search(question, session_id, created_at)
                 answer = result.answer
                 retriever_result = result.retriever_result
+                answer_created_at = result.created_at
                 retriever_nodes = []
                 for item in retriever_result.items:
                     retriever_nodes.append(item.metadata)
-                return {"answer": result.answer, "retriever_result": retriever_nodes}
+                return {"answer": answer, "retriever_result": retriever_nodes, "answer_created_at": answer_created_at}
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")

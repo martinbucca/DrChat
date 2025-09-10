@@ -69,81 +69,55 @@ The Chat Service processes user messages and generates appropriate responses. It
   ```json
   {
      "query": "How many participants were included in the final analysis of the study, and what were the main exclusion criteria?",
-     "session_id": "optional-session-id"
+     "session_id": "optional-session-id",
+     "created_at": "2025-09-09T15:03:34.804743"
   }
   ```
 - **Response:**
   ```json
   {
-    "answer": "The final analysis of the study included 5,221 participants. The main exclusion criteria were:
-    Participants under 20 years old and pregnant women (n =31,152)
-  Those with missing data on heavy metals (n =26,855)
-  Those with incomplete data on TyG, WWI, eGFR, and CKM (n =6,962)
-  These exclusions were applied to the 70,190 participants from the 2005-2018 NHANES database.
-  (Source: Document fnut-12-1613721, Page2)",
+    "answer": "The study included 5,221 participants with complete information in the final analysis.\n\nThe main exclusion criteria were:\n1. Participants under 20 years old and pregnant women (n = 31,152)\n2. Those with missing data on heavy metals (n = 26,855)\n3. Those with incomplete data on TyG, WWI, eGFR, and CKM (n = 6,962)\n\nSource: Document fnut-12-1613721, Page 2 and 4.",
     "retriever_result": [
       {
         "listIds": [
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:618",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:704",
           "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:635",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:637",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:638",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:645"
+        ]
+      },
+      {
+        "listIds": [
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:576",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:638",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:644",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:645"
+        ]
+      },
+      {
+        "listIds": [
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:777",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:638",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:644",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:645"
+        ]
+      },
+      {
+        "listIds": [
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:696",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:568",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:631",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:632",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:633",
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:635",
           "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:638",
           "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:639",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:640",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:686",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:688"
-        ]
-      },
-      {
-        "listIds": [
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:609",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:630",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:631",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:632",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:633",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:635",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:687"
-        ]
-      },
-      {
-        "listIds": [
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:611",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:630",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:631",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:632",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:633",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:636",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:637",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:638",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:642"
-        ]
-      },
-      {
-        "listIds": [
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:615",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:630",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:631",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:632",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:633",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:635",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:636",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:637",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:639",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:640",
           "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:642",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:646"
-        ]
-      },
-      {
-        "listIds": [
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:614",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:630",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:631",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:632",
-          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:633"
+          "4:479e412b-48e2-4f68-9289-c98d5dcdb59c:645"
         ]
       }
-    ]
+    ],
+    "answer_created_at": "2025-09-09T15:41:06.743381"
   }
   ```
 

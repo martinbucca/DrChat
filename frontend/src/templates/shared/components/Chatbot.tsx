@@ -13,7 +13,6 @@ import {
 
 import {
   ClipboardDocumentIconOutline,
-  ArrowPathIconOutline,
   SpeakerWaveIconOutline,
   InformationCircleIconOutline,
   HandThumbDownIconOutline,
@@ -73,12 +72,28 @@ type User = {
   token?: string;
 };
 
-const chatBotAPI = async (question: string, sessionId?: string) => {
+
+function toLocalISOString(date: Date) {
+  const pad = (n: number, width = 2) => n.toString().padStart(width, "0");
+
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  const millis = pad(date.getMilliseconds(), 3);
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${millis}`;
+}
+
+const chatBotAPI = async (question: string, sessionId?: string, createdAt?: string) => {
   try {
     const startTime = Date.now();
     const response: any = await axios.post(import.meta.env.VITE_BACKEND_URL, {
       query: question,
-      session_id: sessionId || sessionStorage.getItem('session_id')
+      session_id: sessionId || sessionStorage.getItem('session_id'),
+      created_at: createdAt
     });
     const endTime = Date.now();
     const timeTaken = endTime - startTime;
@@ -116,30 +131,28 @@ export default function Chatbot(props: ChatbotProps) {
   const [user, setUser] = useState<User>({});
 
   const chatBotVoice = async (message: string) => {
-    try {
-      const data = {
-        model: 'tts-1-hd',
-        voice: 'nova',
-        input: message,
+  return new Promise<string>((resolve) => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.lang = "en-US"; // o "en-US"
+      utterance.rate = 1;       // velocidad (0.1 - 10)
+      utterance.pitch = 1;      // tono (0 - 2)
+
+      utterance.onend = () => resolve("");
+
+      utterance.onerror = (e) => {
+        console.error("Speech synthesis error:", e);
+        resolve("");
       };
-      const response = await axios.post(
-        'https://api.openai.com/v1/audio/speech',
-        data,
-        {
-          headers: {
-        Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-          },
-          responseType: 'blob',
-        }
-      );
-      const url = URL.createObjectURL(response.data);
-      return url;
-    } catch (error) {
-      console.log('Error Posting the Question:', error);
-      throw error;
+      window.speechSynthesis.speak(utterance);
+    } else {
+      console.error("Speech Synthesis not supported in this browser.");
+      resolve("");
     }
-  };
+  });
+};
+
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -148,20 +161,20 @@ export default function Chatbot(props: ChatbotProps) {
   };
 
   const simulateTypingEffect = (
-    response: { reply: string; entities?: [string]; model?: string; sources?: [string]; timeTaken?: number },
+    response: { reply: string; entities?: [string]; model?: string; sources?: [string]; timeTaken?: number, createdAt?: string },
     index = 0
   ) => {
     if (index < response.reply.length) {
       const nextIndex = index + 1;
       const currentTypedText = response.reply.substring(0, nextIndex);
       if (index === 0) {
-        const date = new Date();
+        const date = new Date(response.createdAt ?? Date.now());
         const datetime = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
         if (response.reply.length <= 1) {
           setListMessages((msgs) => [
             ...msgs,
             {
-              id: Date.now(),
+              id: date.getTime(),
               user: 'chatbot',
               message: currentTypedText,
               datetime: datetime,
@@ -175,7 +188,7 @@ export default function Chatbot(props: ChatbotProps) {
         } else {
           setListMessages((msgs) => {
             const lastmsg = { ...msgs[msgs.length - 1] };
-            lastmsg.id = Date.now();
+            lastmsg.id = date.getTime();
             lastmsg.user = 'chatbot';
             lastmsg.message = currentTypedText;
             lastmsg.datetime = datetime;
@@ -207,9 +220,10 @@ export default function Chatbot(props: ChatbotProps) {
       return;
     }
     const date = new Date();
-    const datetime = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+    const datetime = date.toLocaleString().replace(',', '');
     const inputvoice = Date.now();
-    const userMessage = { id: Date.now(), user: 'user', message: inputMessage, datetime: datetime, voiceID: '' };
+    const datetimeISOlocal = toLocalISOString(date); 
+    const userMessage = { id: date.getTime(), user: 'user', message: inputMessage, datetime: datetime, voiceID: '' };
     setListMessages((listMessages) => [...listMessages, userMessage]);
     setLoading(true);
     setInputMessage('');
@@ -218,9 +232,10 @@ export default function Chatbot(props: ChatbotProps) {
     let chatSources;
     let chatModel;
     let chatEntities;
-    const callAxios = await chatBotAPI(inputMessage, sessionId);
+    const callAxios = await chatBotAPI(inputMessage, sessionId, datetimeISOlocal);
     const chatresponse = callAxios.response;
     let chatbotReply = chatresponse.answer;
+    let answerCreatedAt = chatresponse.created_at;
     chatSources = chatresponse.retriever_result.flatMap((source: { listIds: string[] }) => source.listIds);
     chatModel = 'OpenAI GPT o3-mini';
     chatEntities = chatresponse.retriever_result;
@@ -233,6 +248,7 @@ export default function Chatbot(props: ChatbotProps) {
       model: chatModel,
       sources: chatSources,
       timeTaken: chatTimeTaken,
+      createdAt: answerCreatedAt,
     });
     setLoading(false);
   };
@@ -283,6 +299,11 @@ export default function Chatbot(props: ChatbotProps) {
     setListMessages([initialMessage]);
     simulateTypingEffect({ reply: initialMessage.message });
   }, []);
+
+  useEffect(() => {
+    window.speechSynthesis.getVoices(); // fuerza a cargar voces
+  }, []);
+
 
   return (
     <>
@@ -365,43 +386,34 @@ export default function Chatbot(props: ChatbotProps) {
                                       setTimeTaken(chat.timeTaken ?? 0);
                                       setIsOpenModal(true);
                                     }}
-                                    isDisabled={loading}
+                                    isDisabled={loading || chat.isTyping || !chat.sources || chat.sources.length === 0}
                                   >
                                     <PiGraphBold className='w-4 h-4 inline-block' />
                                   </IconButton>
-                                  <IconButton isDisabled={loading} isClean ariaLabel='Search Icon' onClick={() => copy(chat.message)}>
+                                  <IconButton
+                                    isDisabled={loading || chat.isTyping}
+                                    isClean
+                                    ariaLabel="Play Icon"
+                                    onClick={async () => {
+                                      setLoadingPlaying(true);
+                                      await chatBotVoice(chat.message);
+                                      setLoadingPlaying(false);
+                                    }}
+                                  >
+                                    {loadingPlaying ? (
+                                      <LoadingSpinner className="w-4 h-4 inline-block" />
+                                    ) : (
+                                      <SpeakerWaveIconOutline className="w-4 h-4 inline-block" />
+                                    )}
+                                  </IconButton>
+                                  <IconButton isDisabled={loading || chat.isTyping} isClean ariaLabel='Copy Icon' onClick={() => copy(chat.message)}>
                                     <ClipboardDocumentIconOutline className='w-4 h-4 inline-block' />
                                   </IconButton>
-                                  <IconButton isDisabled={loading} isClean ariaLabel='Search Icon'>
-                                    <ArrowPathIconOutline
-                                      className='w-4 h-4 inline-block'
-                                      onClick={async () => {
-                                        setLoading(true);
-                                        setListMessages((msgs) =>
-                                          msgs.map((msg) => (msg.id === chat.id ? { ...msg, message: '' } : msg))
-                                        );
-                                        const callAxios = await chatBotAPI(chat.message, sessionId);
-                                        const chatresponse = callAxios.response;
-                                        let chatbotReply = chatresponse.answer;
-                                        const chatSources = chatresponse.retriever_result.map((source: { id: string }) => source.id);
-                                        const chatModel = 'OpenAI GPT 4';
-                                        const chatEntities = chatresponse.retriever_result;
-                                        const chatTimeTaken = callAxios.timeTaken;
-                                        simulateTypingEffect({
-                                          reply: chatbotReply,
-                                          entities: chatEntities,
-                                          model: chatModel,
-                                          sources: chatSources,
-                                          timeTaken: chatTimeTaken,
-                                        });
-                                        setLoading(false);
-                                      }}
-                                    />
-                                  </IconButton>
-                                  <IconButton isClean ariaLabel='Search Icon'>
+
+                                  <IconButton isDisabled={loading || chat.isTyping} isClean ariaLabel='Like Icon'>
                                     <HandThumbUpIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
                                   </IconButton>
-                                  <IconButton isClean ariaLabel='Search Icon'>
+                                  <IconButton isDisabled={loading || chat.isTyping} isClean ariaLabel='Dislike Icon'>
                                     <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
                                   </IconButton>
                                 </>
