@@ -131,30 +131,28 @@ export default function Chatbot(props: ChatbotProps) {
   const [user, setUser] = useState<User>({});
 
   const chatBotVoice = async (message: string) => {
-    try {
-      const data = {
-        model: 'tts-1-hd',
-        voice: 'nova',
-        input: message,
+  return new Promise<string>((resolve) => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.lang = "en-US"; // o "en-US"
+      utterance.rate = 1;       // velocidad (0.1 - 10)
+      utterance.pitch = 1;      // tono (0 - 2)
+
+      utterance.onend = () => resolve("");
+
+      utterance.onerror = (e) => {
+        console.error("Speech synthesis error:", e);
+        resolve("");
       };
-      const response = await axios.post(
-        'https://api.openai.com/v1/audio/speech',
-        data,
-        {
-          headers: {
-        Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-          },
-          responseType: 'blob',
-        }
-      );
-      const url = URL.createObjectURL(response.data);
-      return url;
-    } catch (error) {
-      console.log('Error Posting the Question:', error);
-      throw error;
+      window.speechSynthesis.speak(utterance);
+    } else {
+      console.error("Speech Synthesis not supported in this browser.");
+      resolve("");
     }
-  };
+  });
+};
+
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -302,6 +300,11 @@ export default function Chatbot(props: ChatbotProps) {
     simulateTypingEffect({ reply: initialMessage.message });
   }, []);
 
+  useEffect(() => {
+    window.speechSynthesis.getVoices(); // fuerza a cargar voces
+  }, []);
+
+
   return (
     <>
       <Header
@@ -390,23 +393,17 @@ export default function Chatbot(props: ChatbotProps) {
                                   <IconButton
                                     isDisabled={loading || chat.isTyping}
                                     isClean
-                                    ariaLabel='Play Icon'
+                                    ariaLabel="Play Icon"
                                     onClick={async () => {
                                       setLoadingPlaying(true);
-                                      if (audioUrl.find((audio) => audio.id === chat.id)) {
-                                        playAudio(audioUrl.find((audio) => audio.id === chat.id)?.URL);
-                                        setLoadingPlaying(false);
-                                      }
-                                      const url = await chatBotVoice(chat.message);
-                                      setAudioUrl((audios) => [...audios, { id: chat.id, URL: url }]);
-                                      playAudio(url);
+                                      await chatBotVoice(chat.message);
                                       setLoadingPlaying(false);
                                     }}
                                   >
                                     {loadingPlaying ? (
-                                      <LoadingSpinner className='w-4 h-4 inline-block' />
+                                      <LoadingSpinner className="w-4 h-4 inline-block" />
                                     ) : (
-                                      <SpeakerWaveIconOutline className='w-4 h-4 inline-block' />
+                                      <SpeakerWaveIconOutline className="w-4 h-4 inline-block" />
                                     )}
                                   </IconButton>
                                   <IconButton isDisabled={loading || chat.isTyping} isClean ariaLabel='Copy Icon' onClick={() => copy(chat.message)}>
