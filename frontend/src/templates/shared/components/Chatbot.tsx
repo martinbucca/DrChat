@@ -73,12 +73,28 @@ type User = {
   token?: string;
 };
 
-const chatBotAPI = async (question: string, sessionId?: string) => {
+
+function toLocalISOString(date: Date) {
+  const pad = (n: number, width = 2) => n.toString().padStart(width, "0");
+
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  const millis = pad(date.getMilliseconds(), 3);
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${millis}`;
+}
+
+const chatBotAPI = async (question: string, sessionId?: string, createdAt?: string) => {
   try {
     const startTime = Date.now();
     const response: any = await axios.post(import.meta.env.VITE_BACKEND_URL, {
       query: question,
-      session_id: sessionId || sessionStorage.getItem('session_id')
+      session_id: sessionId || sessionStorage.getItem('session_id'),
+      created_at: createdAt
     });
     const endTime = Date.now();
     const timeTaken = endTime - startTime;
@@ -101,7 +117,7 @@ export default function Chatbot(props: ChatbotProps) {
   const [negativeFeedbackMessage, setNegativefeedbackMessage] = useState<string>('');
   const [loadingFeedback, setLoadingFeedback] = useState<boolean>(false);
   const [audioUrl, setAudioUrl] = useState<AudioInfo[]>([]);
-  const [sessionId, setSessionId] = useState<string>(uuidv4());
+  const [sessionId, setSessionId] = useState<string>('1');
   const [loadingPlaying, setLoadingPlaying] = useState<boolean>(false);
   const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
   const handleCloseModal = () => setIsOpenModal(false);
@@ -148,20 +164,20 @@ export default function Chatbot(props: ChatbotProps) {
   };
 
   const simulateTypingEffect = (
-    response: { reply: string; entities?: [string]; model?: string; sources?: [string]; timeTaken?: number },
+    response: { reply: string; entities?: [string]; model?: string; sources?: [string]; timeTaken?: number, createdAt?: string },
     index = 0
   ) => {
     if (index < response.reply.length) {
       const nextIndex = index + 1;
       const currentTypedText = response.reply.substring(0, nextIndex);
       if (index === 0) {
-        const date = new Date();
+        const date = new Date(response.createdAt ?? Date.now());
         const datetime = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
         if (response.reply.length <= 1) {
           setListMessages((msgs) => [
             ...msgs,
             {
-              id: Date.now(),
+              id: date.getTime(),
               user: 'chatbot',
               message: currentTypedText,
               datetime: datetime,
@@ -175,7 +191,7 @@ export default function Chatbot(props: ChatbotProps) {
         } else {
           setListMessages((msgs) => {
             const lastmsg = { ...msgs[msgs.length - 1] };
-            lastmsg.id = Date.now();
+            lastmsg.id = date.getTime();
             lastmsg.user = 'chatbot';
             lastmsg.message = currentTypedText;
             lastmsg.datetime = datetime;
@@ -207,9 +223,10 @@ export default function Chatbot(props: ChatbotProps) {
       return;
     }
     const date = new Date();
-    const datetime = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+    const datetime = date.toLocaleString().replace(',', '');
     const inputvoice = Date.now();
-    const userMessage = { id: Date.now(), user: 'user', message: inputMessage, datetime: datetime, voiceID: '' };
+    const datetimeISOlocal = toLocalISOString(date); 
+    const userMessage = { id: date.getTime(), user: 'user', message: inputMessage, datetime: datetime, voiceID: '' };
     setListMessages((listMessages) => [...listMessages, userMessage]);
     setLoading(true);
     setInputMessage('');
@@ -218,9 +235,10 @@ export default function Chatbot(props: ChatbotProps) {
     let chatSources;
     let chatModel;
     let chatEntities;
-    const callAxios = await chatBotAPI(inputMessage, sessionId);
+    const callAxios = await chatBotAPI(inputMessage, sessionId, datetimeISOlocal);
     const chatresponse = callAxios.response;
     let chatbotReply = chatresponse.answer;
+    let answerCreatedAt = chatresponse.created_at;
     chatSources = chatresponse.retriever_result.flatMap((source: { listIds: string[] }) => source.listIds);
     chatModel = 'OpenAI GPT o3-mini';
     chatEntities = chatresponse.retriever_result;
@@ -233,6 +251,7 @@ export default function Chatbot(props: ChatbotProps) {
       model: chatModel,
       sources: chatSources,
       timeTaken: chatTimeTaken,
+      createdAt: answerCreatedAt,
     });
     setLoading(false);
   };
@@ -255,7 +274,7 @@ export default function Chatbot(props: ChatbotProps) {
 
   useEffect(() => {
     if (!sessionStorage.getItem('session_id')) {
-      const id = uuidv4();
+      const id = '1';
       setSessionId(id);
       sessionStorage.setItem('session_id', id);
     }
@@ -380,9 +399,10 @@ export default function Chatbot(props: ChatbotProps) {
                                         setListMessages((msgs) =>
                                           msgs.map((msg) => (msg.id === chat.id ? { ...msg, message: '' } : msg))
                                         );
-                                        const callAxios = await chatBotAPI(chat.message, sessionId);
+                                        const callAxios = await chatBotAPI(chat.message, sessionId, chat.datetime);
                                         const chatresponse = callAxios.response;
                                         let chatbotReply = chatresponse.answer;
+                                        let answerCreatedAt = chatresponse.createdAt;
                                         const chatSources = chatresponse.retriever_result.map((source: { id: string }) => source.id);
                                         const chatModel = 'OpenAI GPT 4';
                                         const chatEntities = chatresponse.retriever_result;
@@ -393,6 +413,7 @@ export default function Chatbot(props: ChatbotProps) {
                                           model: chatModel,
                                           sources: chatSources,
                                           timeTaken: chatTimeTaken,
+                                          createdAt: answerCreatedAt,
                                         });
                                         setLoading(false);
                                       }}
