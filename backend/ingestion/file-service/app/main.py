@@ -1,17 +1,27 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
 from core.config import settings
 from core.logging import setup_logging
 from api import router
+from services import kafka_service
 
 # Setup logging
 setup_logging()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    yield
+    # Shutdown
+    kafka_service.close()
+
 app = FastAPI(
     title=settings.API_TITLE,
     description=settings.API_DESCRIPTION,
-    version=settings.API_VERSION
+    version=settings.API_VERSION,
+    lifespan=lifespan
 )
 
 # CORS middleware

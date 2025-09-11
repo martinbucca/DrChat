@@ -1,5 +1,5 @@
 from langchain_openai import ChatOpenAI
-from app.config import LLM_NER_MODEL, GROQ_API_BASE
+from config import LLM_NER_MODEL, GROQ_API_BASE
 
 class LLM:
     """

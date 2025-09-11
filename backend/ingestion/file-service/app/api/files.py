@@ -15,10 +15,10 @@ router = APIRouter(prefix="/files", tags=["files"])
 @router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(
     file: UploadFile = File(...), 
-    chat_id: Optional[str] = Form(None)
+    session_id: str = Form(...)
 ):
     """Upload a PDF file and save it to the shared storage directory"""
-    return await file_service.upload_file(file, chat_id)
+    return await file_service.upload_file(file, session_id)
 
 
 @router.get("/{file_id}", response_model=FileStatusResponse)

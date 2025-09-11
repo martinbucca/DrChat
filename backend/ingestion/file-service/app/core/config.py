@@ -5,11 +5,15 @@ from pathlib import Path
 class Settings:
     # MongoDB configuration
     MONGO_URL: str = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-    DATABASE_NAME: str = os.getenv("DATABASE_NAME", "drchat")
+    DATABASE_NAME: str = os.getenv("MONGODB_DATABASE_NAME", "drchat")
     COLLECTION_NAME: str = "files"
     
     # Storage configuration
     STORAGE_DIR: Path = Path(os.getenv("STORAGE_DIR", "../../../storage"))
+    
+    # Kafka configuration
+    KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+    KAFKA_FILE_UPLOAD_TOPIC: str = os.getenv("KAFKA_FILE_UPLOAD_TOPIC", "file-upload-events")
     
     # API configuration
     API_TITLE: str = "File Service"

@@ -23,5 +23,14 @@ LLM_NER_MODEL = os.getenv('LLM_NER_MODEL')
 
 UNSTRUCTURED_API_KEY = os.getenv('UNSTRUCTURED_API_KEY')
 UNSTRUCTURED_URL = os.getenv('UNSTRUCTURED_URL')
+
+# Kafka Configuration
+KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:29092')
+KAFKA_TOPIC = os.getenv('KAFKA_FILE_UPLOAD_TOPIC', 'file-upload-events')
+KAFKA_GROUP_ID = os.getenv('KAFKA_GROUP_ID', 'document-processor-group')
+
+# File Service Configuration
+FILE_SERVICE_URL = os.getenv('FILE_SERVICE_URL', 'http://file-service:8000')
+
 # To use ChatOpenAI from Groq, set the OPENAI_API_KEY environment variable to your Groq API key
 os.environ["OPENAI_API_KEY"] = GROQ_API_KEY

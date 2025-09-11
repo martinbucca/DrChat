@@ -7,5 +7,5 @@ langchain-neo4j
 python-dotenv
 nltk
 unstructured
-aiokafka
-
+kafka-python==2.0.2
+httpx

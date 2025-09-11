@@ -23,14 +23,14 @@ class DocumentsProcessor:
         self.graph_builder = graph_builder
 
     # Procesar esto en paralelo (?)
-    def process_file(self, filepath: str):
+    def process_file(self, filepath: str, session_id: str = None):
         start_time = time.time()
         filename = os.path.basename(filepath)
-        print(f"Processing {filename}...")
+        print(f"Processing {filename} for session {session_id}...")
         chunks = self.chunker.chunk_document(filepath, filename)
         print(f" - Chunked into {len(chunks)} pieces.")
-        self.graph_builder.process_chunks(chunks)
-        print(f" - Processed and stored in graph database.")
+        self.graph_builder.process_chunks(chunks, session_id=session_id)
+        print(f" - Processed and stored in graph database for session {session_id}.")
         elapsed = time.time() - start_time
         print(f"Time to process {filename}: {int(elapsed // 60)}m {elapsed % 60:.2f}s")
 
