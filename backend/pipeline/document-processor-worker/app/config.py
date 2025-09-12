@@ -15,12 +15,6 @@ AZURE_OPENAI_API_VERSION= os.environ.get('AZURE_OPENAI_API_VERSION')
 AZURE_OPENAI_ENDPOINT= os.environ.get('AZURE_OPENAI_ENDPOINT')
 AZURE_OPENAI_EMBEDDINGS_MODEL= os.environ.get('AZURE_OPENAI_EMBEDDINGS_MODEL')
 
-
-GROQ_API_BASE = os.getenv('GROQ_API_BASE')
-GROQ_API_KEY = os.getenv('GROQ_API_KEY')
-
-LLM_NER_MODEL = os.getenv('LLM_NER_MODEL')
-
 UNSTRUCTURED_API_KEY = os.getenv('UNSTRUCTURED_API_KEY')
 UNSTRUCTURED_URL = os.getenv('UNSTRUCTURED_URL')
 
@@ -31,6 +25,3 @@ KAFKA_GROUP_ID = os.getenv('KAFKA_GROUP_ID', 'document-processor-group')
 
 # File Service Configuration
 FILE_SERVICE_URL = os.getenv('FILE_SERVICE_URL', 'http://file-service:8000')
-
-# To use ChatOpenAI from Groq, set the OPENAI_API_KEY environment variable to your Groq API key
-os.environ["OPENAI_API_KEY"] = GROQ_API_KEY

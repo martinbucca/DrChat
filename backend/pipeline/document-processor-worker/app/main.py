@@ -3,7 +3,6 @@ from services.driver import Neo4jDriver
 from services.embedding import Embedding
 from services.graph_builder import GraphBuilder
 from services.documents_processor import DocumentsProcessor
-from services.llm import LLM
 from services.entity_relationship_extractor import EntityRelationshipExtractor
 from services.file_status_service import FileStatusService
 from config import KAFKA_BOOTSTRAP_SERVERS, KAFKA_TOPIC, KAFKA_GROUP_ID
@@ -33,12 +32,9 @@ driver = driver_instance.driver
 embedding_instance = Embedding.get_instance()
 embedder = embedding_instance.embedder
 
-llm_instance = LLM.get_instance()
-llm = llm_instance.llm
-
 chunker_instance = Chunker.get_instance()
 
-entity_relationship_extractor_instance = EntityRelationshipExtractor.get_instance(llm)
+entity_relationship_extractor_instance = EntityRelationshipExtractor.get_instance()
 
 graph_builder_instance = GraphBuilder.get_instance(driver, embedder, entity_relationship_extractor_instance)
 

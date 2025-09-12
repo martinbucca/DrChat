@@ -75,9 +75,21 @@ MERGE (n)-[:RELATED_CONTENT]->(i)
 MERGE (i)-[:PART_OF_DOCUMENT]->(d)
 WITH m, n
 UNWIND m.entities AS e
-MERGE (ent:Entity {id: e.type})
-SET ent.name = e.id
+MERGE (ent:Entity {id: e.id})
+SET ent.text = e.text,
+    ent.label = e.label,
+    ent.confidence = e.confidence,
+    ent.start = e.start,
+    ent.end = e.end
 MERGE (n)-[:MENTIONS]->(ent)
+WITH m, n
+WHERE size(m.relationships) > 0
+UNWIND m.relationships AS r
+MATCH (source:Entity) WHERE source.text = r.source
+MATCH (target:Entity) WHERE target.text = r.target
+MERGE (source)-[rel:RELATIONSHIP {id: r.id}]->(target)
+SET rel.type = r.type,
+    rel.confidence = r.confidence
 WITH DISTINCT n
 WHERE n.session_id IS NOT NULL
 WITH n ORDER BY n.page_number
@@ -112,10 +124,15 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
                 if chunk.get("text"):
                     text = chunk["text"]
                     
+                    # Initialize empty lists for entities and relationships
+                    chunk["entities"] = []
+                    chunk["relationships"] = []
+                    
                     # Process entities if extractor available
                     if self.entity_relationship_extractor:
                         ner_result = self.entity_relationship_extractor.extract_entities_and_relationships(text)
                         chunk["entities"] = ner_result.get("entities", [])
+                        chunk["relationships"] = ner_result.get("relationships", [])
                     
                     # Calculate tokens
                     chunk["tokens"] = len(nltk.word_tokenize(text))
