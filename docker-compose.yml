@@ -13,7 +13,7 @@ services:
       - drchat-network
 
   neo4j:
-    image: neo4j:5.26
+    image: neo4j:5.26.0-community
     container_name: drchat-neo4j
     restart: unless-stopped
     ports:
