@@ -47,12 +47,9 @@ cp backend/pipeline/document-processor-worker/.env.example backend/pipeline/docu
 |-------------------------------|-----------------------------------------------------------------|
 | `UNSTRUCTURED_API_KEY`        | API Key para el servicio Unstructured (procesamiento de PDFs). |
 | `UNSTRUCTURED_URL`            | URL del servicio Unstructured.                                 |
-| `GROQ_API_KEY`                | API Key para acceder a servicios de Groq (modelos de lenguaje).|
-| `GROQ_API_BASE`               | URL base para la API de Groq.                                  |
-| `LLM_NER_MODEL`               | Modelo de LLM para extracción de entidades.                    |
-| `AZURE_OPENAI_API_KEY`        | API Key para Azure OpenAI (opcional).                          |
-| `AZURE_OPENAI_ENDPOINT`       | Endpoint de Azure OpenAI (opcional).                           |
-| `AZURE_OPENAI_EMBEDDINGS_MODEL` | Modelo de embeddings de Azure OpenAI (opcional).            |
+| `AZURE_OPENAI_API_KEY`        | API Key para Azure OpenAI (embeddings).                        |
+| `AZURE_OPENAI_ENDPOINT`       | Endpoint de Azure OpenAI.                                      |
+| `AZURE_OPENAI_EMBEDDINGS_MODEL` | Modelo de embeddings de Azure OpenAI.                       |
 | `VECTOR_INDEX_NAME`           | Nombre del índice vectorial en Neo4j.                          |
 | `FULLTEXT_INDEX_NAME`         | Nombre del índice de texto completo en Neo4j.                  |
 
