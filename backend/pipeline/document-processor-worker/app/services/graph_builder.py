@@ -42,14 +42,14 @@ class GraphBuilder:
 WITH apoc.convert.fromJsonList($json) AS maps
 UNWIND maps AS map
 WITH apoc.map.clean(map,[],["  ",""]) AS m
-MERGE (d:Document {name: m.metadata.filename})
+MERGE (d:Document {name: m.metadata.original_filename})
 SET d.session_id = COALESCE(m.metadata.session_id, "global")
 WITH m, d
 CREATE (n:Chunk {id: m.element_id})
 SET
   n.type = "NarrativeText",
   n.text = m.text,
-  n.filename = m.metadata.filename,
+  n.filename = m.metadata.original_filename,
   n.filetype = m.metadata.filetype,
   n.languages = m.metadata.languages,
   n.page_number = m.metadata.page_number,
@@ -59,11 +59,11 @@ SET
 CREATE (n)-[:PART_OF_DOCUMENT]->(d)
 WITH m, d, n
 WHERE m.metadata.type IN ['Image', 'Table']
-CREATE (i:Content {id: m.element_id})
+CREATE (i:$(m.metadata.type) {id: m.element_id})
 SET i.type = m.metadata.type,
     i.figure_caption = m.metadata.figure_caption,
     i.text = m.metadata.text,
-    i.filename = m.metadata.filename,
+    i.filename = m.metadata.original_filename,
     i.filetype = m.metadata.filetype,
     i.languages = m.metadata.languages,
     i.page_number = m.metadata.page_number,
@@ -75,12 +75,11 @@ MERGE (n)-[:RELATED_CONTENT]->(i)
 MERGE (i)-[:PART_OF_DOCUMENT]->(d)
 WITH m, n
 UNWIND m.entities AS e
-MERGE (ent:Entity {id: e.id})
-SET ent.text = e.text,
-    ent.label = e.label,
-    ent.confidence = e.confidence,
+MERGE (ent:Entity {text: e.text, label: e.label})
+SET ent.confidence = e.confidence,
     ent.start = e.start,
-    ent.end = e.end
+    ent.end = e.end,
+    ent.id = e.id
 MERGE (n)-[:MENTIONS]->(ent)
 WITH m, n
 WHERE size(m.relationships) > 0
@@ -105,7 +104,7 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
         self.entity_relationship_extractor = entity_relationship_extractor
         self._create_vector_indexes()
 
-    def process_chunks(self, chunks: list[dict], session_id: str = None):
+    def process_chunks(self, chunks: list[dict], original_filename: str = None, session_id: str = None):
         import concurrent.futures
         import threading
         
@@ -117,6 +116,7 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
                 if 'metadata' not in chunk:
                     chunk['metadata'] = {}
                 chunk['metadata']['session_id'] = session_id
+                chunk['metadata']['original_filename'] = original_filename
         
         def process_single_chunk(chunk_data):
             i, chunk = chunk_data

@@ -47,7 +47,7 @@ file_status_service = FileStatusService.get_instance()
 
 logger.info("All services initialized successfully")
 
-def process_file_message(file_path: str, file_id: str = None, session_id: str = None):
+def process_file_message(file_path: str, file_id: str = None, original_filename: str = None, session_id: str = None):
     """Process a file from a Kafka message"""
     try:
         logger.info(f"Processing file: {file_path} for session: {session_id}")
@@ -61,7 +61,7 @@ def process_file_message(file_path: str, file_id: str = None, session_id: str = 
                 logger.warning(f"Failed to update file {file_id} status to 'processing'")
         
         # Process the file
-        document_processor_instance.process_file(file_path, session_id=session_id)
+        document_processor_instance.process_file(file_path, original_filename, session_id=session_id)
         
         # Update status to 'processed'
         if file_id:
@@ -122,10 +122,10 @@ def consume_messages():
             try:
                 # Extract file_path from the message
                 message_data = message.value
+                original_filename = message_data.get('original_filename')
                 file_path = message_data.get('file_path')
                 file_id = message_data.get('file_id')
                 session_id = message_data.get('session_id')
-                
                 if not file_path:
                     logger.error(f"No file_path found in message: {message_data}")
                     continue
@@ -133,7 +133,7 @@ def consume_messages():
                 logger.info(f"Received Kafka message for file ID: {file_id}, session: {session_id}, path: {file_path}")
                 
                 # Process the file
-                process_file_message(file_path, file_id, session_id)
+                process_file_message(file_path, file_id, original_filename, session_id)
                 
             except Exception as e:
                 logger.error(f"Error processing Kafka message: {str(e)}")
