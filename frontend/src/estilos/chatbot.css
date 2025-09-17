@@ -61,6 +61,14 @@ body {
   margin-top: auto;
 }
 
+.right-sidebar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 10px;
+}
+
 /* CHATBOT */
 .chatbot-container {
   flex: 1;
@@ -227,4 +235,50 @@ button:hover {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Chat ID search */
+.search-container {
+  display: flex;
+  align-items: stretch; 
+  gap: 0;
+  margin-bottom: 8px;
+  height:30px;
+}
+
+.search-container input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px 0 0 5px;
+  font-size: 14px;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.search-container button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 0 15px;
+  border-radius: 0 5px 5px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: auto; 
+  box-sizing: border-box;
+}
+
+/* Historial de preguntas*/
+.history-list {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.chat-id {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  font-weight: bold;
 }

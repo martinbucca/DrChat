@@ -1,0 +1,27 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+VECTOR_INDEX_NAME = os.getenv('VECTOR_INDEX_NAME')
+VECTOR_DIMENSIONS = int(os.getenv('VECTOR_DIMENSIONS', '3072'))  # Default to 3072 if not set
+FULLTEXT_INDEX_NAME = os.getenv('FULLTEXT_INDEX_NAME')
+
+NEO4J_URI = os.getenv('NEO4J_URI')
+NEO4J_USERNAME = os.getenv('NEO4J_USERNAME')
+NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD')
+
+AZURE_OPENAI_API_KEY= os.environ.get('AZURE_OPENAI_API_KEY')
+AZURE_OPENAI_API_VERSION= os.environ.get('AZURE_OPENAI_API_VERSION')
+AZURE_OPENAI_ENDPOINT= os.environ.get('AZURE_OPENAI_ENDPOINT')
+AZURE_OPENAI_EMBEDDINGS_MODEL= os.environ.get('AZURE_OPENAI_EMBEDDINGS_MODEL')
+
+UNSTRUCTURED_API_KEY = os.getenv('UNSTRUCTURED_API_KEY')
+UNSTRUCTURED_URL = os.getenv('UNSTRUCTURED_URL')
+
+# Kafka Configuration
+KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:29092')
+KAFKA_TOPIC = os.getenv('KAFKA_FILE_UPLOAD_TOPIC', 'file-upload-events')
+KAFKA_GROUP_ID = os.getenv('KAFKA_GROUP_ID', 'document-processor-group')
+
+# File Service Configuration
+FILE_SERVICE_URL = os.getenv('FILE_SERVICE_URL', 'http://file-service:8000')

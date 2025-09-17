@@ -13,15 +13,17 @@ const ChatHeader = ({ user, handleDownloadReport }) => {
     if (!file) return;
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('files', file);
 
     try {
-      const response = await fetch('http://localhost:5000/upload', {
+      const response = await fetch('http://localhost:8001/upload', {
         method: 'POST',
         body: formData,
       });
 
       if (response.ok) {
+        const data = await response.json();  
+        console.log('Server response:', data);
         alert('Archivo subido con éxito ✅');
       } else {
         alert('Error al subir archivo ❌');

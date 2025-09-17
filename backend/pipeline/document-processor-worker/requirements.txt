@@ -1,0 +1,10 @@
+unstructured
+kafka-python==2.0.2
+httpx
+transformers
+torch
+python-dotenv
+neo4j
+langchain-openai
+neo4j-graphrag
+nltk
