@@ -53,6 +53,7 @@ SET
   n.filetype = m.metadata.filetype,
   n.languages = m.metadata.languages,
   n.page_number = m.metadata.page_number,
+  n.chunk_number = m.number,
   n.tokens = m.tokens,
   n.embedding = m.embedding,
   n.session_id = COALESCE(m.metadata.session_id, "global")
@@ -86,13 +87,17 @@ WHERE size(m.relationships) > 0
 UNWIND m.relationships AS r
 MATCH (source:Entity) WHERE source.text = r.source
 MATCH (target:Entity) WHERE target.text = r.target
-MERGE (source)-[rel:RELATIONSHIP {id: r.id}]->(target)
+MERGE (source)-[rel:RELATES_TO {id: r.id}]->(target)
 SET rel.type = r.type,
     rel.confidence = r.confidence
-WITH DISTINCT n
-WHERE n.session_id IS NOT NULL
-WITH n ORDER BY n.page_number
-WITH collect(n) AS nodes
+'''
+
+    NEXT_CHUNK_QUERY = '''
+MATCH (d:Document {name: $filename})<-[:PART_OF_DOCUMENT]-(n:Chunk)
+WHERE n.session_id = coalesce($session_id, "global") AND n.chunk_number IS NOT NULL
+WITH d, n
+ORDER BY toInteger(n.chunk_number)
+WITH d, collect(n) AS nodes
 CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
 '''
 
@@ -112,11 +117,14 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
         
         # Add session_id to each chunk's metadata if provided
         if session_id:
+            i = 0
             for chunk in chunks:
                 if 'metadata' not in chunk:
                     chunk['metadata'] = {}
                 chunk['metadata']['session_id'] = session_id
                 chunk['metadata']['original_filename'] = original_filename
+                chunk["number"] = i + 1
+                i += 1
         
         def process_single_chunk(chunk_data):
             i, chunk = chunk_data
@@ -192,15 +200,19 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
         
         logger.info("All chunks processed, loading into Neo4j")
         json_data = json.dumps(processed_chunks, indent=4)
-        self._load_graph(json_data)
+        self._load_graph(json_data, original_filename, session_id)
 
     def _run_query(self, tx, query, json_data):
         return tx.run(query, {"json": json_data}).consume()
+    
+    def _run_query_next_chunk_rel(self, tx, query, filename, session_id):
+        return tx.run(query, {"filename": filename, "session_id": session_id}).consume()
 
-    def _load_graph(self, json_data):
+    def _load_graph(self, json_data, filename, session_id):
         with self.driver.session() as session:
-            summary = session.execute_write(self._run_query, self.CHUNK_QUERY, json_data)
-            print(f"nodes created => {summary.counters.nodes_created}, rels created => {summary.counters.relationships_created}")
+            summary_chunks = session.execute_write(self._run_query, self.CHUNK_QUERY, json_data)
+            summary_next = session.execute_write(self._run_query_next_chunk_rel, self.NEXT_CHUNK_QUERY, filename, session_id)
+            logger.info(f"nodes created => {summary_chunks.counters.nodes_created}, rels created => {summary_chunks.counters.relationships_created + summary_next.counters.relationships_created}")
 
     def _extract_orig_elements(self, encoded):
         decoded = base64.b64decode(encoded)
