@@ -17,6 +17,7 @@ from models.file import (
     FileListResponse, 
     FileListItem
 )
+from .kafka_service import kafka_service
 
 
 class FileService:
@@ -25,9 +26,9 @@ class FileService:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.files_collection = database.get_files_collection()
     
-    async def upload_file(self, file: UploadFile, chat_id: Optional[str] = None) -> FileUploadResponse:
+    async def upload_file(self, file: UploadFile, session_id: str) -> FileUploadResponse:
         """Upload a PDF file and save it to storage"""
-        log.info(f"Starting file upload: {file.filename}, chat_id: {chat_id}")
+        log.info(f"Starting file upload: {file.filename}, session_id: {session_id}")
         
         # Validate file type (PDF only)
         if not file.filename.lower().endswith('.pdf'):
@@ -49,6 +50,7 @@ class FileService:
         
         # Create file record
         file_id = str(uuid.uuid4())
+        current_time = datetime.now()
         file_record = {
             "file_id": file_id,
             "original_filename": file.filename,
@@ -56,11 +58,11 @@ class FileService:
             "file_path": str(file_path),
             "file_size": file_path.stat().st_size,
             "content_type": file.content_type,
-            "chat_id": chat_id,
+            "session_id": session_id,
             "status": "pending",
-            "upload_time": datetime.now(),
-            "created_at": datetime.now(),
-            "updated_at": datetime.now()
+            "upload_time": current_time,
+            "created_at": current_time,
+            "updated_at": current_time
         }
         
         log.info(f"Created file record with ID: {file_id}")
@@ -74,11 +76,11 @@ class FileService:
             file_path=str(file_path),
             file_size=file_path.stat().st_size,
             content_type=file.content_type,
-            chat_id=chat_id,
+            session_id=session_id,
             status="pending",
-            upload_time=datetime.now().isoformat(),
-            created_at=datetime.now().isoformat(),
-            updated_at=datetime.now().isoformat()
+            upload_time=current_time.isoformat(),
+            created_at=current_time.isoformat(),
+            updated_at=current_time.isoformat()
         )
         
         # Store in MongoDB
@@ -93,7 +95,55 @@ class FileService:
         else:
             log.warning("MongoDB collection not available, skipping database save")
         
-        # TODO: Publish to Kafka
+        # Publish to Kafka
+        kafka_success = False
+        try:
+            log.info(f"Publishing file upload event to Kafka for file: {file_id}")
+
+            kafka_record = {
+                "file_id": file_id,
+                "original_filename": file.filename,
+                "saved_filename": unique_filename,
+                "file_path": str(file_path),
+                "file_size": file_path.stat().st_size,
+                "content_type": file.content_type,
+                "session_id": session_id,
+                "status": "pending",
+                "upload_time": current_time.isoformat(),
+                "created_at": current_time.isoformat(),
+                "updated_at": current_time.isoformat()
+            }
+            
+            kafka_success = await kafka_service.publish_file_upload_event(kafka_record)
+            if kafka_success:
+                log.info(f"File upload event published successfully to Kafka for file: {file_id}")
+            else:
+                log.warning(f"Failed to publish file upload event to Kafka for file: {file_id}")
+        except Exception as e:
+            log.error(f"Error publishing to Kafka: {e}")
+            kafka_success = False
+        
+        # Update status in MongoDB if Kafka publication failed
+        if not kafka_success and self.files_collection is not None:
+            try:
+                log.info(f"Updating file status to 'notification_failed' for file: {file_id}")
+                self.files_collection.update_one(
+                    {"file_id": file_id},
+                    {
+                        "$set": {
+                            "status": "notification_failed",
+                            "updated_at": datetime.now(),
+                            "notification_error": "Failed to publish file upload event to Kafka"
+                        }
+                    }
+                )
+                log.info(f"File status updated to 'notification_failed' for file: {file_id}")
+                
+                # Also update the response record
+                response_record.status = "notification_failed"
+                
+            except PyMongoError as e:
+                log.error(f"Error updating file status in MongoDB: {e}")
         
         log.info(f"File upload completed successfully: {file_id}")
         return response_record
@@ -134,7 +184,7 @@ class FileService:
         """Update file status"""
         log.info(f"Updating file status: {file_id} -> {status}")
         
-        valid_statuses = ["pending", "processing", "processed", "error"]
+        valid_statuses = ["pending", "processing", "processed", "error", "notification_failed"]
         if status not in valid_statuses:
             log.warning(f"Invalid status attempted: {status} for file {file_id}")
             raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")

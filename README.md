@@ -2,26 +2,56 @@
 
 Chatbot médico que procesa documentos PDF y permite a los usuarios interactuar con un sistema de preguntas y respuestas basado en la información contenida en dichos documentos.
 
-Los archivos PDF pueden ser cargados via endpoint por administradores para alimentar el grafo base de conocimiento del sistema o ser enviados por los usuarios a través del frontend. En caso de ser enviados por los usuarios, los nodos generados incluirán un `chat_id` para asociar el documento a un chat específico. El sistema procesa los documentos, extrae entidades y relaciones, y permite a los usuarios realizar consultas sobre la información contenida en ellos.
+Los archivos PDF pueden ser enviados por los usuarios a través del frontend. Los nodos generados incluirán un `session_id` para asociar el documento a un chat específico. El sistema procesa los documentos, extrae entidades y relaciones, y permite a los usuarios realizar consultas sobre la información contenida en ellos.
 
 ---
 
 ## 🔧 Variables de entorno
 
-A continuación se listan las variables de entorno necesarias para el correcto funcionamiento del proyecto:
+El proyecto utiliza un sistema de configuración centralizada con archivos `.env` específicos por servicio. Copia y configura los archivos necesarios:
 
-| Variable                | Descripción                                                                 |
-|-------------------------|-----------------------------------------------------------------------------|
-| `TOKENIZERS_PARALLELISM`| Controla el paralelismo en el procesamiento de tokenizadores (NLP).         |
-| `GROQ_API_KEY`          | API Key para acceder a servicios de Groq (modelos de lenguaje).             |
-| `NEO4J_URI`             | URI de conexión para la base de datos Neo4j.                                |
-| `NEO4J_USERNAME`        | Usuario para autenticación en Neo4j.                                        |
-| `NEO4J_PASSWORD`        | Contraseña para autenticación en Neo4j.                                     |
-| `NEO4J_DATABASE`        | Nombre de la base de datos utilizada en Neo4j.                              |
-| `MONGODB_URL`           | URL de conexión para MongoDB (ej: `mongodb://mongodb:27017/drchat`).        |
-| `DATABASE_NAME`         | Nombre de la base de datos MongoDB (ej: `drchat`).                          |
-| `STORAGE_DIR`           | Directorio donde se almacenan los archivos subidos (ej: `/app/storage`).    |
-| `LOG_LEVEL`             | Nivel de logging para los servicios (ej: `INFO`, `DEBUG`, `ERROR`).         |
+```bash
+# Variables generales del proyecto (.env)
+cp .env.example .env
+
+# Variables específicas por servicio
+cp backend/ingestion/file-service/.env.example backend/ingestion/file-service/.env
+cp backend/pipeline/document-processor-worker/.env.example backend/pipeline/document-processor-worker/.env
+```
+
+### **📋 Variables Generales (`.env`)**
+
+| Variable                    | Descripción                                                                 |
+|-----------------------------|-----------------------------------------------------------------------------|
+| `MONGODB_URL`               | URL de conexión para MongoDB (ej: `mongodb://mongodb:27017/drchat`).        |
+| `MONGODB_DATABASE_NAME`     | Nombre de la base de datos MongoDB (ej: `drchat`).                          |
+| `NEO4J_URI`                 | URI de conexión para la base de datos Neo4j.                                |
+| `NEO4J_USERNAME`            | Usuario para autenticación en Neo4j.                                        |
+| `NEO4J_PASSWORD`            | Contraseña para autenticación en Neo4j.                                     |
+| `NEO4J_DATABASE`            | Nombre de la base de datos utilizada en Neo4j.                              |
+| `KAFKA_BOOTSTRAP_SERVERS`   | Servidores de Kafka (ej: `kafka:29092`).                                   |
+| `KAFKA_FILE_UPLOAD_TOPIC`   | Tópico de Kafka para eventos de archivos (ej: `file-upload-events`).       |
+| `KAFKA_GROUP_ID`            | ID del grupo de consumidores Kafka (ej: `document-processor-group`).       |
+| `FILE_SERVICE_URL`          | URL del servicio de archivos (ej: `http://file-service:8000`).              |
+
+### **📄 Variables por Servicio**
+
+#### **File Service** (`backend/ingestion/file-service/.env`)
+| Variable      | Descripción                                                                 |
+|---------------|-----------------------------------------------------------------------------|
+| `STORAGE_DIR` | Directorio donde se almacenan los archivos subidos (ej: `/app/storage`).    |
+| `LOG_LEVEL`   | Nivel de logging para los servicios (ej: `INFO`, `DEBUG`, `ERROR`).         |
+
+#### **Document Processor Worker** (`backend/pipeline/document-processor-worker/.env`)
+| Variable                      | Descripción                                                     |
+|-------------------------------|-----------------------------------------------------------------|
+| `UNSTRUCTURED_API_KEY`        | API Key para el servicio Unstructured (procesamiento de PDFs). |
+| `UNSTRUCTURED_URL`            | URL del servicio Unstructured.                                 |
+| `AZURE_OPENAI_API_KEY`        | API Key para Azure OpenAI (embeddings).                        |
+| `AZURE_OPENAI_ENDPOINT`       | Endpoint de Azure OpenAI.                                      |
+| `AZURE_OPENAI_EMBEDDINGS_MODEL` | Modelo de embeddings de Azure OpenAI.                       |
+| `VECTOR_INDEX_NAME`           | Nombre del índice vectorial en Neo4j.                          |
+| `FULLTEXT_INDEX_NAME`         | Nombre del índice de texto completo en Neo4j.                  |
 
 ---
 
@@ -49,7 +79,7 @@ El backend está dividido en tres módulos principales: **Ingestion**, **Pipelin
 
 **Endpoints:**
 - `GET /`: Health check del servicio
-- `POST /files/upload`: Recibe un archivo PDF y lo guarda en el sistema. Acepta un `chat_id` opcional para asociar el archivo a un chat específico
+- `POST /files/upload`: Recibe un archivo PDF y un `session_id` y lo guarda en el sistema
 - `GET /files/{file_id}`: Obtiene el estado y metadatos del archivo por su ID
 - `PUT /files/{file_id}/status`: Actualiza el estado del archivo (por ejemplo, de `pending` a `processing` o `processed`)
 - `GET /docs`: Documentación interactiva de la API (Swagger UI)
@@ -74,15 +104,6 @@ El backend está dividido en tres módulos principales: **Ingestion**, **Pipelin
 - `POST /chat/send`: Recibe un mensaje de usuario, lo almacena y responde. En la respuesta se incluye el ID del chat.
 - `GET /chat/{chat_id}`: Obtiene el historial de mensajes de un chat por su ID.
 - `GET /chat/{chat_id}/last`: Obtiene el último mensaje de un chat.
-
-#### `retriever-service`
-**Descripción:**  
-👉 Microservicio encargado de recibir solicitudes de contexto desde el `chat-service`. Realiza consultas sobre el grafo en Neo4j para recuperar información contextual y relevante para la respuesta del chat.
-
-**Endpoints:**
-- `POST /retriever/context`: Recibe el mensaje y el `chat_id`, realiza la consulta en Neo4j, y devuelve el contexto necesario para la respuesta.
-
----
 
 ## 🚀 **Cómo ejecutar el proyecto**
 
@@ -130,5 +151,7 @@ Una vez que los servicios estén ejecutándose:
 |----------|-----|-------------|
 | **Frontend** | http://localhost:5000 | Interfaz web de DrChat |
 | **File Service** | http://localhost:8001/docs | API de gestión de archivos (Swagger) |
-| **Health Check** | http://localhost:8001/ | Estado del file-service |
+| **File Service Health Check** | http://localhost:8001/ | Estado del file-service |
+| **Neo4j Browser** | http://localhost:7474 | Interfaz web de Neo4j |
 | **MongoDB** | localhost:27017 | Base de datos (acceso directo) |
+| **Kafka** | localhost:9092 | Broker de mensajes |

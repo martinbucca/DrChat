@@ -1,6 +1,6 @@
 from unstructured_client import UnstructuredClient
 from unstructured_client.models import operations, shared
-from app.config import UNSTRUCTURED_API_KEY, UNSTRUCTURED_URL
+from config import UNSTRUCTURED_API_KEY, UNSTRUCTURED_URL
 from typing import Optional
 import os
 
