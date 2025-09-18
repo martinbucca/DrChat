@@ -229,6 +229,18 @@ export default function Chatbot(props: ChatbotProps) {
 
   const currentMessages = currentSession?.messages || [];
 
+  useEffect(() => {
+    if (currentSession?.title) {
+      document.title = `${currentSession.title} - DrChat`;
+    } else {
+      document.title = 'DrChat';
+    }
+
+    return () => {
+      document.title = 'DrChat';
+    };
+  }, [currentSession?.title]);
+
   return (
     <div className='h-screen flex relative overflow-hidden n-bg-palette-neutral-bg-default'>
       <Drawer isExpanded={isDrawerOpen} onExpandedChange={setIsDrawerOpen} type='push' isCloseable={false}>
