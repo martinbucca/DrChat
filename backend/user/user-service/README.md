@@ -1,6 +1,7 @@
 # User Service (Auth)
 
 Servicio de autenticación mínimo para registro e ingreso de usuarios. Expone endpoints REST vía FastAPI y persiste en PostgreSQL.
+Incluye integración con Firebase Authentication para enviar correos de verificación al registrar usuarios.
 
 - Puerto: `5002`
 - Base path: `/api`
@@ -38,11 +39,21 @@ Comandos útiles desde la raíz del repo:
 Notas:
 - El servicio de Postgres (`db`) NO expone el puerto 5432 al host; los contenedores se comunican por la red interna usando el hostname `db`.
 - La URL de conexión por defecto del user-service es `postgresql+psycopg://app:secret@db:5432/drchat` (se puede sobreescribir con `DATABASE_URL`).
+- El `docker-compose.yml` en la raíz del proyecto define además contenedores para frontend, chat-service y chat-history-service; podés levantar todo con:
+  ```bash
+  docker compose up -d --build
+  ```
+  (Verificá que tus `.env` estén completos para cada servicio.)
 
 ## Variables de entorno
 
 - `DATABASE_URL` (opcional): cadena SQLAlchemy hacia Postgres.
   - Default interno: `postgresql+psycopg://app:secret@db:5432/drchat`
+- **Integración Firebase** (opcional):
+  - `GOOGLE_APPLICATION_CREDENTIALS`: ruta dentro del contenedor a las credenciales del Service Account.
+  - `FIREBASE_WEB_API_KEY`: API key del proyecto Firebase (se usa para el flujo REST `signInWithPassword` + `sendOobCode`).
+  - En Docker, montar el JSON del Service Account y exponer las variables en `user-service`.
+  - Si no se configuran estas variables, el servicio sigue funcionando pero no se enviará la verificación por correo.
 
 ## Endpoints
 
@@ -103,4 +114,3 @@ uvicorn app.main:app --host 0.0.0.0 --port 5002 --reload
 ## Seguridad
 
 Este flujo es básico para desarrollo: el “token” es un placeholder y no se valida en otros servicios. Para producción, reemplazar por JWT u otro esquema, guardar tokens en cookies `httpOnly` y validar en cada request de backend.
-

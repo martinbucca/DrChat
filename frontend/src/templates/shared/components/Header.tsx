@@ -1,15 +1,8 @@
 import { MoonIconOutline, SunIconOutline, QuestionMarkCircleIconOutline } from '@neo4j-ndl/react/icons';
-import { Typography, IconButton, Tabs, Switch } from '@neo4j-ndl/react';
+import { Typography, IconButton, Tabs, Switch, Logo } from '@neo4j-ndl/react';
 import React, { useState, useCallback } from 'react';
 import { ThemeWrapperContext } from '../../../context/ThemeWrapper';
-import DrChatLogo from '../assets/dr_chat_logo.png';
 import User from './User';
-
-
-type UserProps = {
-  name: string;
-  email: string;
-};
 
 export default function Header({
   title,
@@ -21,7 +14,7 @@ export default function Header({
   setConnectNeo4j = () => {},
   openConnectionModal = () => {},
   userHeader = true,
-  userInfo = { name: 'John Doe', email: 'john.doe@neo4j.com' },
+  documentation = '',
 }: {
   title: string;
   navItems?: string[];
@@ -32,7 +25,7 @@ export default function Header({
   setConnectNeo4j?: (connectNeo4j: boolean) => void;
   openConnectionModal?: () => void;
   userHeader?: boolean;
-  userInfo?: UserProps;
+  documentation?: string;
 }) {
   const themeUtils = React.useContext(ThemeWrapperContext);
   const [themeMode, setThemeMode] = useState<string>(themeUtils.colorMode);
@@ -57,30 +50,21 @@ export default function Header({
         id='navigation'
         aria-label='main navigation'
       >
-
         <section className='flex md:flex-row flex-col items-center w-1/6 shrink-0 grow-0'>
-          {/* Logo de DrChat */}
           <div className='md:inline-block'>
-            <img
-              src={DrChatLogo}
-              alt='DrChat Logo'
-              className='h-6 min-h-6 min-w-12 md:h-8 md:min-h-12 md:min-w-24 md:mr-2'
-              style={{ objectFit: 'contain' }}
-            />
+            <Logo className='h-6 min-h-6 min-w-12 md:h-8 md:min-h-12 md:min-w-24 md:mr-2' type='full' />
           </div>
+          <div className='flex justify-center md:ml-0 pl-0'>
+            <Typography className='md:inline-block hidden' variant='h6'>
+              {title}
+            </Typography>
+            <Typography className='md:hidden inline-block' variant='subheading-small'>
+              {title}
+            </Typography>
+          </div>
+        </section>
 
-            {/* Título */}
-            <div className='flex justify-center md:ml-0 pl-0'>
-              <Typography className='md:inline-block hidden' variant='h6'>
-                {title}
-              </Typography>
-              <Typography className='md:hidden inline-block' variant='subheading-small'>
-                {title}
-              </Typography>
-            </div>
-          </section>
-
-        <section className='flex w-1/3 shrink-0 grow-0 justify-center items-center mb-[-22px]'>
+        <section className='flex w-1/3 shrink-0 grow-0 justify-center items-center mb-[-24px]'>
           <Tabs size='large' fill='underline' onChange={(e) => setActiveNavItem(e)} value={activeNavItem}>
             {navItems.map((item) => (
               <Tabs.Tab tabId={item} key={item}>
@@ -94,7 +78,7 @@ export default function Header({
             <div className='flex grow-0 gap-x-1 w-max items-center pr-3'>
               {useNeo4jConnect ? (
                 <Switch
-                  checked={connectNeo4j}
+                  isChecked={connectNeo4j}
                   onChange={(e) => {
                     if (e.target.checked) {
                       openConnectionModal();
@@ -102,15 +86,13 @@ export default function Header({
                       setConnectNeo4j(false);
                     }
                   }}
-                  disabled={false}
-                  fluid={true}
+                  isDisabled={false}
+                  isFluid={true}
                   label={`Connect${connectNeo4j ? 'ed' : ''} to Neo4j`}
-                  labelBefore={true}
+                  hasLabelBefore={true}
                 />
               ) : null}
-              {userHeader ? <User /> : null}
-
-              <IconButton aria-label='Toggle Dark mode' isClean size='large' onClick={toggleColorMode} ariaLabel=''>
+              <IconButton ariaLabel='Toggle Dark mode' isClean size='large' onClick={toggleColorMode}>
                 {themeMode === 'dark' ? (
                   <span role='img' aria-label='sun'>
                     <SunIconOutline />
@@ -121,7 +103,21 @@ export default function Header({
                   </span>
                 )}
               </IconButton>
+              <IconButton
+                onClick={() => handleURLClick(documentation)}
+                className='hidden md:inline-flex'
+                ariaLabel='Help'
+                isClean
+                size='large'
+              >
+                <QuestionMarkCircleIconOutline />
+              </IconButton>
 
+              {userHeader ? (
+                <div className='hidden md:inline-block'>
+                  <User />
+                </div>
+              ) : null}
             </div>
           </div>
         </section>

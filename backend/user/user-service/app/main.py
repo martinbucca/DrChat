@@ -22,4 +22,4 @@ def on_startup():
     DataBase.metadata.create_all(bind=engine)
 
 
-app.include_router(auth.router, prefix="/api", tags=["auth"])
+app.include_router(auth.router, prefix="/api", tags=["auth", "users"])

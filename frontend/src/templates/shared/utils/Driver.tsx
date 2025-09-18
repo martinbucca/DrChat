@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 import neo4j, { Driver } from 'neo4j-driver';
+import { nvlResultTransformer } from '@neo4j-nvl/base';
 
 export let driver: Driver;
 
@@ -28,42 +29,53 @@ export async function disconnect() {
   }
 }
 
-export async function runQuery(query: string) {
-  const nodes = [];
-  const rels = [];
+export async function runRAGQuery(sources: Array<string>) {
+  // Customize the RETRIEVAL_QUERY to match your needs
+  const formattedSources = sources.map((source) => `'${source}'`).join(', ');
+  const RETRIEVAL_QUERY = `MATCH (a)-[r]->(b) WHERE elementId(a) IN [${formattedSources}] RETURN a, r, b LIMIT 25`;
+  const nvlGraph = await driver.executeQuery(RETRIEVAL_QUERY, {}, { resultTransformer: nvlResultTransformer });
+  const nodes = nvlGraph.nodes.map((node) => {
+    const { properties, labels } = nvlGraph.recordObjectMap.get(node.id);
+    return {
+      ...node,
+      caption: properties.name ?? labels[0],
+    };
+  });
+  console.log(nodes);
+  const relationships = nvlGraph.relationships.map((rel) => {
+    const or = nvlGraph.recordObjectMap.get(rel.id);
+    return {
+      ...rel,
+      caption: or.type,
+    };
+  });
+  return { nodes, relationships };
+}
+
+/*
+  Everything below this line is only for providing examples based on datasets available in Neo4j Sandbox (sandbox.neo4j.com).
+  When using this code in your own project, you should remove the examples below and use your own queries.
+*/
+export async function runRecoQuery(query: string) {
+  const reco = [];
   try {
     let { records } = await driver.executeQuery(query);
-    //console.log(records);
     for (let record of records) {
-
-      const nodeStart = record.get('a');
-      nodes.push({
-        id: nodeStart.identity.low,
-        labels: nodeStart.labels,
-        properties: nodeStart.properties,
+      reco.push({
+        id: record.get('id'),
+        genres: record.get('genres'),
+        year: record.get('year'),
+        imdbRating: record.get('imdbRating'),
+        languages: record.get('languages'),
+        title: record.get('title'),
+        plot: record.get('plot'),
+        poster: record.get('poster'),
       });
-
-      const nodeEnd = record.get('b');
-      nodes.push({
-        id: nodeEnd.identity.low,
-        labels: nodeEnd.labels,
-        properties: nodeEnd.properties,
-      });
-
-      const rel = record.get('r');
-      rels.push({
-        id: rel.elementId,
-        start: rel.start.low,
-        end: rel.end.low,
-        type: rel.type,
-        properties: rel.properties,
-      });
-
     }
-    //console.log(rels);
-    return { nodes: nodes, rels: rels };
+
+    return reco;
   } catch (err) {
-    console.error(`Query error\n${err}\nCause: ${err as Error}`);
-    return [];
+    console.error(`Disconnection error\n${err}\nCause: ${err as Error}`);
+    return false;
   }
 }

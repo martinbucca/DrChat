@@ -1,5 +1,6 @@
-/* eslint-disable no-confusing-arrow */
 import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Button,
   Widget,
@@ -7,152 +8,93 @@ import {
   Avatar,
   TextInput,
   IconButton,
-  LoadingSpinner,
+  useCopyToClipboard,
   Modal,
+  Drawer,
+  LoadingSpinner,
+  TextLink,
 } from '@neo4j-ndl/react';
 
+import ChatBotAvatar from '../assets/chatbot-ai.png';
 import {
+  ArrowPathIconOutline,
   ClipboardDocumentIconOutline,
-  SpeakerWaveIconOutline,
-  InformationCircleIconOutline,
   HandThumbDownIconOutline,
-  HandThumbUpIconOutline,
+  InformationCircleIconOutline,
+  SpeakerWaveIconOutline,
+  PencilSquareIconOutline,
+  ArrowUpTrayIconOutline,
+  XMarkIconOutline,
+  CheckIconOutline,
+  TrashIconOutline,
+  SidebarLineLeftIcon,
+  ArrowRightIconOutline,
+  ArrowLeftIconOutline,
 } from '@neo4j-ndl/react/icons';
-import { useCopyToClipboard } from '@neo4j-ndl/react';
-
-import { PiGraphBold } from "react-icons/pi";
-
-
-import ChatBotAvatar from '../assets/dr_chat_logo.png';
-
-import './Chatbot.css';
-import ReactMarkdown from 'react-markdown';
-
-import { v4 as uuidv4 } from 'uuid';
-import remarkGfm from 'remark-gfm';
-
-import axios from 'axios';
-
 import RetrievalInformation from './RetrievalInformation';
-
-import Header from './Header';
-import { useNavigate } from 'react-router-dom';
-
-const url = () => {
-  let url = window.location.href.replace('3001', '8000');
-  if (process.env.BACKEND_API_URL) {
-    url = process.env.BACKEND_API_URL;
-  }
-  return !url || !url.match('/$') ? url : url.substring(0, url.length - 1);
-};
+import { useChatSession, ChatMessage } from '../../../context/ChatSessionContext';
 
 type ChatbotProps = {
-  messages: {
+  messages?: {
     id: number;
     user: string;
     message: string;
     datetime: string;
     isTyping?: boolean;
-    typeMessage?: string;
-    sources?: string[];
-    entities?: string[];
-    model?: string;
-    timeTaken?: number;
+    src?: Array<string>;
   }[];
 };
 
-interface AudioInfo {
-  id: number;
-  URL: string;
-}
-
-type User = {
-  email?: string;
-  name?: string;
-  token?: string;
-};
-
-
-function toLocalISOString(date: Date) {
-  const pad = (n: number, width = 2) => n.toString().padStart(width, "0");
-
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  const seconds = pad(date.getSeconds());
-  const millis = pad(date.getMilliseconds(), 3);
-
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${millis}`;
-}
-
-const chatBotAPI = async (question: string, sessionId?: string, createdAt?: string) => {
-  try {
-    const startTime = Date.now();
-    const response: any = await axios.post(import.meta.env.VITE_BACKEND_URL, {
-      query: question,
-      session_id: sessionId || sessionStorage.getItem('session_id'),
-      created_at: createdAt
-    });
-    const endTime = Date.now();
-    const timeTaken = endTime - startTime;
-    return { response: response.data, timeTaken: timeTaken };
-  } catch (error) {
-    console.log('ERR: ', error);
-    console.log('Error Posting the Question:', error);
-    throw error;
-  }
+type ChatbotResponse = {
+  response: string;
+  src: string[];
 };
 
 export default function Chatbot(props: ChatbotProps) {
-  const { messages } = props;
-  const navigate = useNavigate();
-  const [listMessages, setListMessages] = useState<ChatbotProps['messages']>([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const formattedTextStyle = { color: 'rgb(var(--theme-palette-discovery-bg-strong))' };
-  const [loading, setLoading] = useState<boolean>(false);
-  const [negativeFeedback, setNegativefeedback] = useState<boolean>(false);
-  const [negativeFeedbackMessage, setNegativefeedbackMessage] = useState<string>('');
-  const [loadingFeedback, setLoadingFeedback] = useState<boolean>(false);
-  const [audioUrl, setAudioUrl] = useState<AudioInfo[]>([]);
-  const [sessionId, setSessionId] = useState<string>(uuidv4());
-  const [loadingPlaying, setLoadingPlaying] = useState<boolean>(false);
-  const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
-  const handleCloseModal = () => setIsOpenModal(false);
-  const [sourcesModal, setSourcesModal] = useState<string[]>([]);
-  const [entitiesModal, setEntitiesModal] = useState<string[]>([]);
-  const [modelModal, setModelModal] = useState<string>('');
-  const [timeTaken, setTimeTaken] = useState<number>(0);
-  const [value, copy] = useCopyToClipboard();
+  const { messages = [] } = props;
+  const {
+    currentSession,
+    sessions,
+    createNewSession,
+    switchSession,
+    deleteSession,
+    addMessageToCurrentSession,
+    updateSessionTitle,
+  } = useChatSession();
 
-  const [activeNavItem, setActiveNavItem] = useState<string>('Chatbot');
+  const hasInitialized = useRef(false);
 
-  const [user, setUser] = useState<User>({});
-
-  const chatBotVoice = async (message: string) => {
-  return new Promise<string>((resolve) => {
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.lang = "en-US"; // o "en-US"
-      utterance.rate = 1;       // velocidad (0.1 - 10)
-      utterance.pitch = 1;      // tono (0 - 2)
-
-      utterance.onend = () => resolve("");
-
-      utterance.onerror = (e) => {
-        console.error("Speech synthesis error:", e);
-        resolve("");
-      };
-      window.speechSynthesis.speak(utterance);
-    } else {
-      console.error("Speech Synthesis not supported in this browser.");
-      resolve("");
+  useEffect(() => {
+    if (sessions.length === 0 && !hasInitialized.current) {
+      hasInitialized.current = true;
+      if (messages.length > 0) {
+        createNewSession('Sample Chat');
+        messages.forEach((msg) => {
+          addMessageToCurrentSession(msg as ChatMessage);
+        });
+      } else {
+        createNewSession('New Chat');
+      }
     }
-  });
-};
+  }, [sessions.length, messages, createNewSession, addMessageToCurrentSession]);
 
+  const [inputMessage, setInputMessage] = useState('');
+  const [, copy] = useCopyToClipboard();
+  const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
+  const [timeTaken, setTimeTaken] = useState<number>(0);
+  const [sourcesModal, setSourcesModal] = useState<string[]>([]);
+  const [modelModal, setModelModal] = useState<string>('');
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+
+  const [typingMessageId, setTypingMessageId] = useState<number | null>(null);
+  const [currentTypingText, setCurrentTypingText] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const handleCloseModal = () => setIsOpenModal(false);
+
+  const formattedTextStyle = { color: 'rgb(var(--theme-palette-discovery-bg-strong))' };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -160,312 +102,472 @@ export default function Chatbot(props: ChatbotProps) {
     setInputMessage(e.target.value);
   };
 
-  const simulateTypingEffect = (
-    response: { reply: string; entities?: [string]; model?: string; sources?: [string]; timeTaken?: number, createdAt?: string },
-    index = 0
-  ) => {
-    if (index < response.reply.length) {
-      const nextIndex = index + 1;
-      const currentTypedText = response.reply.substring(0, nextIndex);
-      if (index === 0) {
-        const date = new Date(response.createdAt ?? Date.now());
-        const datetime = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-        if (response.reply.length <= 1) {
-          setListMessages((msgs) => [
-            ...msgs,
-            {
-              id: date.getTime(),
-              user: 'chatbot',
-              message: currentTypedText,
-              datetime: datetime,
-              isTyping: true,
-              sources: response?.sources,
-              entities: response?.entities,
-              model: response?.model,
-              timeTaken: response?.timeTaken,
-            },
-          ]);
-        } else {
-          setListMessages((msgs) => {
-            const lastmsg = { ...msgs[msgs.length - 1] };
-            lastmsg.id = date.getTime();
-            lastmsg.user = 'chatbot';
-            lastmsg.message = currentTypedText;
-            lastmsg.datetime = datetime;
-            lastmsg.isTyping = true;
-            lastmsg.sources = response?.sources;
-            lastmsg.entities = response?.entities;
-            lastmsg.model = response?.model;
-            lastmsg.timeTaken = response?.timeTaken;
-            return msgs.map((msg, index) => {
-              if (index === msgs.length - 1) {
-                return lastmsg;
-              }
-              return msg;
-            });
-          });
-        }
+  const simulateTypingEffect = (responseText: ChatbotResponse) => {
+    const date = new Date();
+    const datetime = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+    const messageId = Date.now();
+
+    setTypingMessageId(messageId);
+    setCurrentTypingText('');
+
+    let currentIndex = 0;
+    const typingInterval = setInterval(() => {
+      if (currentIndex < responseText.response.length) {
+        const currentText = responseText.response.substring(0, currentIndex + 1);
+        setCurrentTypingText(currentText);
+        currentIndex += 1;
       } else {
-        setListMessages((msgs) => msgs.map((msg) => (msg.isTyping ? { ...msg, message: currentTypedText } : msg)));
+        setCurrentTypingText('');
+        setTypingMessageId(null);
+        clearInterval(typingInterval);
+
+        const finalMessage: ChatMessage = {
+          id: messageId,
+          user: 'chatbot',
+          message: responseText.response,
+          datetime: datetime,
+          isTyping: false,
+          src: responseText.src,
+        };
+        addMessageToCurrentSession(finalMessage);
       }
-      setTimeout(() => simulateTypingEffect(response, nextIndex), 20);
-    } else {
-      setListMessages((msgs) => msgs.map((msg) => (msg.isTyping ? { ...msg, isTyping: false } : msg)));
-    }
+    }, 20);
   };
 
   const handleSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    if (!inputMessage.trim()) {
+    if (!inputMessage.trim() || !currentSession) {
       return;
     }
+    
     const date = new Date();
-    const datetime = date.toLocaleString().replace(',', '');
-    const inputvoice = Date.now();
-    const datetimeISOlocal = toLocalISOString(date); 
-    const userMessage = { id: date.getTime(), user: 'user', message: inputMessage, datetime: datetime, voiceID: '' };
-    setListMessages((listMessages) => [...listMessages, userMessage]);
-    setLoading(true);
+    const datetime = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+    const userMessage: ChatMessage = { 
+      id: Date.now(), 
+      user: 'user', 
+      message: inputMessage, 
+      datetime: datetime 
+    };
+    
+    addMessageToCurrentSession(userMessage);
     setInputMessage('');
-    simulateTypingEffect({ reply: ' ' });
 
-    let chatSources;
-    let chatModel;
-    let chatEntities;
-    const callAxios = await chatBotAPI(inputMessage, sessionId, datetimeISOlocal);
-    const chatresponse = callAxios.response;
-    let chatbotReply = chatresponse.answer;
-    let answerCreatedAt = chatresponse.created_at;
-    chatSources = chatresponse.retriever_result.flatMap((source: { listIds: string[] }) => source.listIds);
-    chatModel = 'OpenAI GPT o3-mini';
-    chatEntities = chatresponse.retriever_result;
+    setIsLoading(true);
 
-    const chatTimeTaken = callAxios.timeTaken;
-    const voiceid = Date.now();
-    simulateTypingEffect({
-      reply: chatbotReply,
-      entities: chatEntities,
-      model: chatModel,
-      sources: chatSources,
-      timeTaken: chatTimeTaken,
-      createdAt: answerCreatedAt,
-    });
-    setLoading(false);
+    // Simulate API delay (~2 seconds)
+    // This is where you would call your backend API to get the chatbot response
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const chatbotReply = {
+      response:
+        'Hello, here is an example response with sources. To use the chatbot, plug this to your backend with a fetch containing an object response of type: {response: string, src: Array<string>}',
+      src: ['1:1234-abcd-efgh-ijkl-5678:2', '3:8765-zyxw-vuts-rqpo-4321:4'],
+    }; // Replace with getting a response from your chatbot through your APIs
+
+    setIsLoading(false);
+    
+    simulateTypingEffect(chatbotReply);
   };
 
   const scrollToBottom = () => {
-    //messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
-
-  useEffect(() => {
-    // Minimal guard: if no user stored, go to login
-    const stored = localStorage.getItem('user');
-    if (!stored) {
-      navigate('/login', { replace: true });
-    }
-  }, [navigate]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [listMessages]);
+  }, [currentSession?.messages, typingMessageId, currentTypingText, isLoading]);
 
-  useEffect(() => {
-    if (!sessionStorage.getItem('session_id')) {
-      const id = uuidv4();
-      setSessionId(id);
-      sessionStorage.setItem('session_id', id);
-    }
-  }, []);
-
-  function playAudio(id) {
-    const audio = new Audio(id);
-    audio.play().catch((error) => console.error('Error playing the audio:', error));
-  }
-  const handleNegativeFeedback = (target) => {
-    setNegativefeedbackMessage(target);
-    setNegativefeedback(true);
+  const handleNewSession = () => {
+    createNewSession();
   };
 
-  useEffect(() => {
-    const initialMessage = {
-      id: 1,
-      message: `Hello! I’m DrChat, your AI assistant for exploring and understanding medical documents. 
-      Ask me anything, and I’ll provide accurate, source-backed answers to help you make informed decisions. 
-      How can I assist you today?`,
-      user: 'chatbot',
-      datetime: '01/01/2024 00:00:00',
-      typeMessage: 'First',
-    };
-    setListMessages([initialMessage]);
-    simulateTypingEffect({ reply: initialMessage.message });
-  }, []);
+  const handleSwitchSession = (sessionId: string) => {
+    switchSession(sessionId);
+  };
 
-  useEffect(() => {
-    window.speechSynthesis.getVoices(); // fuerza a cargar voces
-  }, []);
+  const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    deleteSession(sessionId);
+  };
 
+  const handleEditSession = (sessionId: string, currentTitle: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingSessionId(sessionId);
+    setEditTitle(currentTitle);
+  };
+
+  const handleSaveEdit = (sessionId: string) => {
+    if (editTitle.trim()) {
+      updateSessionTitle(sessionId, editTitle.trim());
+    }
+    setEditingSessionId(null);
+    setEditTitle('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSessionId(null);
+    setEditTitle('');
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) {
+      return 'Today';
+    }
+    if (diffDays === 2) {
+      return 'Yesterday';
+    }
+    if (diffDays < 7) {
+      return `${diffDays - 1} days ago`;
+    }
+    return date.toLocaleDateString();
+  };
+
+  const currentMessages = currentSession?.messages || [];
 
   return (
-    <>
-      <Header
-        title='DrChat'
-        useNeo4jConnect={false}
-      />
-      <div className='n-bg-palette-neutral-bg-default flex flex-col justify-between min-h-[calc(100vh-64px)] max-h-[calc(100vh-64px)] overflow-hidden'>
-      <div className='flex overflow-y-auto pb-12 min-w-full'>
-              <Widget className='n-bg-palette-neutral-bg-default w-full h-full' header='' isElevated={false}>
-                <div className='flex flex-col gap-3 p-3 pr-6 pl-6'>
-                  {listMessages.map((chat, index) => (
-                    <div
-                      ref={messagesEndRef}
-                      key={chat.id}
-                      className={`flex gap-2.5 items-end ${chat.user === 'chatbot' ? 'flex-row' : 'flex-row-reverse'} `}
-                    >
-                      <div className='w-8 h-8'>
-                        {chat.user === 'chatbot' ? (
-                          <Avatar
-                            className='-ml-4'
-                            hasStatus
-                            name='KM'
-                            shape='square'
-                            size='x-large'
-                            source={ChatBotAvatar}
-                            status='online'
-                            type='image'
-                          />
-                        ) : (
-                          <Avatar
-                            className=''
-                            hasStatus
-                            name='KM'
-                            size='x-large'
-                            status='online'
-                            type='image'
-                            shape='square'
-                          />
-                        )}
-                      </div>
-                      <Widget
-                        header=''
-                        isElevated={true}
-                        className={`p-4 self-start max-w-[55%] ${
-                          chat.user === 'chatbot' && chat.typeMessage != 'Feedback'
-                            ? 'n-bg-palette-neutral-bg-weak'
-                            : chat.typeMessage == 'Feedback'
-                            ? 'n-bg-palette-success-bg-status n-text-palette-neutral-text-inverse'
-                            : 'n-bg-palette-primary-bg-weak'
-                        }`}
-                      >
-                        <div
-                          className={`${
-                            loading && index === listMessages.length - 1 && chat.user == 'chatbot' ? 'loader' : ''
-                          }`}
-                        >
-                          {loading && index === listMessages.length - 1 && chat.user == 'chatbot' ? (
-                            <LoadingSpinner size='large' className='ml-[40%] self-center justify-center align-middle' />
-                          ) : (
-                            <></>
-                          )}
-                          <ReactMarkdown children={chat.message} remarkPlugins={[remarkGfm]} />
-                        </div>
-                        <div className='text-right align-bottom pt-3'>
-                          <Typography variant='body-small'>{chat.datetime}</Typography>
-                        </div>
-                        <Typography variant='body-small' className='text-right'>
-                          {chat.user === 'chatbot' && chat.typeMessage != 'Feedback' ? (
-                            <div className='flex gap-1'>
-                              {chat.typeMessage != 'First' ? (
-                                <>
-                                  <IconButton
-                                    isClean
-                                    ariaLabel='Search Icon'
-                                    onClick={() => {
-                                      setEntitiesModal(chat.entities ?? []);
-                                      setModelModal(chat.model ?? '');
-                                      setSourcesModal(chat.sources ?? []);
-                                      setTimeTaken(chat.timeTaken ?? 0);
-                                      setIsOpenModal(true);
-                                    }}
-                                    isDisabled={loading || chat.isTyping || !chat.sources || chat.sources.length === 0}
-                                  >
-                                    <PiGraphBold className='w-4 h-4 inline-block' />
-                                  </IconButton>
-                                  <IconButton
-                                    isDisabled={loading || chat.isTyping}
-                                    isClean
-                                    ariaLabel="Play Icon"
-                                    onClick={async () => {
-                                      setLoadingPlaying(true);
-                                      await chatBotVoice(chat.message);
-                                      setLoadingPlaying(false);
-                                    }}
-                                  >
-                                    {loadingPlaying ? (
-                                      <LoadingSpinner className="w-4 h-4 inline-block" />
-                                    ) : (
-                                      <SpeakerWaveIconOutline className="w-4 h-4 inline-block" />
-                                    )}
-                                  </IconButton>
-                                  <IconButton isDisabled={loading || chat.isTyping} isClean ariaLabel='Copy Icon' onClick={() => copy(chat.message)}>
-                                    <ClipboardDocumentIconOutline className='w-4 h-4 inline-block' />
-                                  </IconButton>
-
-                                  <IconButton isDisabled={loading || chat.isTyping} isClean ariaLabel='Like Icon'>
-                                    <HandThumbUpIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
-                                  </IconButton>
-                                  <IconButton isDisabled={loading || chat.isTyping} isClean ariaLabel='Dislike Icon'>
-                                    <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
-                                  </IconButton>
-                                </>
-                              ) : (
-                                <>                                </>
-                              )}
-                            </div>
-                          ) : (
-                            <></>
-                          )}
-                        </Typography>
-                      </Widget>
+    <div className='h-screen flex relative overflow-hidden n-bg-palette-neutral-bg-default'>
+      <Drawer isExpanded={isDrawerOpen} onExpandedChange={setIsDrawerOpen} type='push' isCloseable={false}>
+        <Drawer.Header>
+          <div className='flex items-center justify-between w-full gap-2'>
+            <Button color='neutral' onClick={handleNewSession} fill='outlined'>
+              <PencilSquareIconOutline className='w-4 h-4 mr-4' /> New chat
+            </Button>
+            <Button color='neutral' fill='outlined'>
+              <ArrowUpTrayIconOutline className='w-4 h-4 mr-4' /> Upload file
+            </Button>
+          </div>
+        </Drawer.Header>
+        <Drawer.Body>
+          {sessions.length === 0 ? (
+            <div className='flex  flex-col p-4 text-center'>
+              <Typography variant='body-medium' className='n-text-palette-neutral-text-weak'>
+                No chat sessions yet.
+              </Typography>
+              <Button onClick={handleNewSession} className='mt-3' size='small'>
+                Start New Chat
+              </Button>
+            </div>
+          ) : (
+            <div className='space-y-1'>
+              <div className='text-left'>
+                <Typography variant='body-medium' className='n-text-palette-neutral-text-weak'>
+                  Chats
+                </Typography>
+              </div>
+              {sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className={`group relative p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                    session.id === currentSession?.id
+                      ? 'n-bg-palette-primary-bg-selected'
+                      : 'hover:n-bg-palette-primary-hover-weak'
+                  }`}
+                  onClick={() => handleSwitchSession(session.id)}
+                >
+                  {editingSessionId === session.id ? (
+                    <div className='flex items-center gap-2' onClick={(e) => e.stopPropagation()}>
+                      <TextInput
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        htmlAttributes={{
+                          onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+                            if (e.key === 'Enter') {
+                              handleSaveEdit(session.id);
+                            } else if (e.key === 'Escape') {
+                              handleCancelEdit();
+                            }
+                          },
+                          autoFocus: true,
+                        }}
+                        className='flex-1'
+                        size='small'
+                      />
+                      <IconButton isClean ariaLabel='Save' onClick={() => handleSaveEdit(session.id)} size='small'>
+                        <CheckIconOutline className='w-3 h-3' />
+                      </IconButton>
+                      <IconButton isClean ariaLabel='Cancel' onClick={handleCancelEdit} size='small'>
+                        <XMarkIconOutline className='w-3 h-3' />
+                      </IconButton>
                     </div>
-                  ))}
-                </div>
-              </Widget>
-            </div>
-            <div className='n-bg-palette-neutral-bg-default flex gap-2.5 bottom-0 p-2.5 w-full'>
-              <form onSubmit={handleSubmit} className='flex gap-2.5 w-full'>
-                <TextInput
-                  className='n-bg-palette-neutral-bg-default flex-grow-7 w-full'
-                  type='text'
-                  value={inputMessage}
-                  isFluid
-                  onChange={handleInputChange}
-                  htmlAttributes={{
-                    type: 'text',
-                    'aria-label': 'Chatbot Input',
-                    placeholder: 'Type your message...',
-                  }}
-                />
+                  ) : (
+                    <>
+                      <div className='flex items-start justify-between'>
+                        <div className='flex flex-col min-w-0'>
+                          <Typography
+                            variant='body-medium'
+                            className={`truncate ${
+                              session.id === currentSession?.id
+                                ? 'n-text-palette-primary-text'
+                                : 'n-text-palette-neutral-text'
+                            }`}
+                          >
+                            {session.title}
+                          </Typography>
+                          <Typography variant='body-small' className='n-text-palette-neutral-text-weak mt-1'>
+                            {formatDate(session.updatedAt)} • {session.messages.length} messages
+                          </Typography>
+                        </div>
 
-                <Button type='submit'>Submit</Button>
-              </form>
+                        <div className='flex ml-4 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity'>
+                          <IconButton
+                            isClean
+                            ariaLabel='Edit'
+                            onClick={(e) => handleEditSession(session.id, session.title, e)}
+                            size='small'
+                          >
+                            <PencilSquareIconOutline className='w-3 h-3' />
+                          </IconButton>
+                          <IconButton
+                            isClean
+                            ariaLabel='Delete'
+                            onClick={(e) => handleDeleteSession(session.id, e)}
+                            size='small'
+                            className='n-text-palette-danger-text hover:n-bg-palette-danger-bg-weak'
+                          >
+                            <TrashIconOutline className='w-3 h-3' />
+                          </IconButton>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
-            <Modal
-              modalProps={{
-                id: 'default-menu',
-                className: 'n-p-token-4 n-bg-palette-neutral-bg-weak n-rounded-lg max-h-[90%] min-w-[60%]',
+          )}
+        </Drawer.Body>
+      </Drawer>
+
+      <div className='flex-1 flex flex-col h-screen'>
+        <div className='n-bg-palette-neutral-bg-weak p-4 flex items-center gap-4'>
+          <IconButton
+            isClean
+            ariaLabel='Open Chat History'
+            onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+            className='group relative hover:n-bg-palette-neutral-bg transition-all duration-200'
+          >
+            <SidebarLineLeftIcon className='w-6 h-6 opacity-100 group-hover:opacity-0 transition-opacity duration-200' />
+            <ArrowRightIconOutline
+              className={`absolute inset-0 w-6 h-6 m-auto opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
+                isDrawerOpen ? 'hidden' : 'block'
+              }`}
+            />
+            <ArrowLeftIconOutline
+              className={`absolute inset-0 w-6 h-6 m-auto opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
+                isDrawerOpen ? 'block' : 'hidden'
+              }`}
+            />
+          </IconButton>
+          <div>
+            <Typography variant='h6' className='n-text-palette-neutral-text'>
+              {currentSession?.title || 'New Chat'}
+            </Typography>
+            <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
+              {currentMessages.length} messages
+            </Typography>
+          </div>
+        </div>
+        <div className='flex-1 overflow-y-auto pb-6 n-bg-palette-neutral-bg-default'>
+          <div className='flex flex-col gap-3 p-3 min-h-full'>
+            {currentMessages.map((chat) => (
+              <div
+                ref={messagesEndRef}
+                key={chat.id}
+                className={`flex gap-2.5 items-end ${chat.user === 'chatbot' ? 'flex-row' : 'flex-row-reverse'} `}
+              >
+                <div className='w-8 h-8 mr-4 ml-4'>
+                  {chat.user === 'chatbot' ? (
+                    <Avatar
+                      className='-ml-4'
+                      hasStatus
+                      name='KM'
+                      size='x-large'
+                      source={ChatBotAvatar}
+                      status='online'
+                      type='image'
+                      shape='square'
+                    />
+                  ) : (
+                    <Avatar
+                      className=''
+                      hasStatus
+                      name='KM'
+                      size='x-large'
+                      status='online'
+                      type='image'
+                      shape='square'
+                    />
+                  )}
+                </div>
+                <Widget
+                  header=''
+                  isElevated={true}
+                  className={`p-4 self-start max-w-[55%] ${
+                    chat.user === 'chatbot' ? 'n-bg-palette-neutral-bg-weak' : 'n-bg-palette-primary-bg-weak'
+                  }`}
+                >
+                  <div>
+                    <ReactMarkdown
+                      components={{
+                        code: ({ children }) => (
+                          <span style={formattedTextStyle}>
+                            {children}
+                          </span>
+                        ),
+                        a: ({ ...props }) => (
+                          <TextLink type='external' href={props.href} target='_blank'>
+                            {props.children}
+                          </TextLink>
+                        ),
+                      }}
+                      remarkPlugins={[remarkGfm]}
+                    >
+                      {chat.message}
+                    </ReactMarkdown>
+                  </div>
+                  <div className='text-right align-bottom pt-3'>
+                    <Typography variant='body-small'>{chat.datetime}</Typography>
+                  </div>
+                  <Typography variant='body-small' className='text-right'>
+                    {chat.user === 'chatbot' ? (
+                      <div className='flex gap-1'>
+                        <>
+                          <IconButton isClean ariaLabel='Search Icon'>
+                            <SpeakerWaveIconOutline className='w-4 h-4 inline-block' />
+                          </IconButton>
+                          {chat.src && chat.src.length > 0 ? (
+                            <IconButton
+                              isClean
+                              ariaLabel='Search Icon'
+                              onClick={() => {
+                                setModelModal('OpenAI GPT 4o');
+                                setSourcesModal(chat.src ?? []);
+                                setTimeTaken(50);
+                                setIsOpenModal(true);
+                              }}
+                            >
+                              <InformationCircleIconOutline className='w-4 h-4 inline-block' />
+                            </IconButton>
+                          ) : null}
+                          <IconButton isClean ariaLabel='Search Icon' onClick={() => copy(chat.message)}>
+                            <ClipboardDocumentIconOutline className='w-4 h-4 inline-block' />
+                          </IconButton>
+                          <IconButton isClean ariaLabel='Search Icon'>
+                            <ArrowPathIconOutline className='w-4 h-4 inline-block' />
+                          </IconButton>
+                          <IconButton isClean ariaLabel='Search Icon'>
+                            <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
+                          </IconButton>
+                        </>
+                      </div>
+                    ) : (
+                      <></>
+                    )}
+                  </Typography>
+                </Widget>
+              </div>
+            ))}
+
+            {isLoading && (
+              <div ref={messagesEndRef} className='flex gap-2.5 items-end flex-row'>
+                <div className='w-8 h-8 mr-4 ml-4'>
+                  <Avatar
+                    className='-ml-4'
+                    hasStatus
+                    name='KM'
+                    size='x-large'
+                    source={ChatBotAvatar}
+                    status='online'
+                    type='image'
+                    shape='square'
+                  />
+                </div>
+                <Widget header='' isElevated={true} className='p-4 self-start max-w-[55%] n-bg-palette-neutral-bg-weak'>
+                  <div className='flex items-center gap-2'>
+                    <LoadingSpinner size='small' />
+                    <Typography variant='body-medium'>Thinking...</Typography>
+                  </div>
+                </Widget>
+              </div>
+            )}
+
+            {typingMessageId && currentTypingText && (
+              <div ref={messagesEndRef} className='flex gap-2.5 items-end flex-row'>
+                <div className='w-8 h-8 mr-4 ml-4'>
+                  <Avatar
+                    className='-ml-4'
+                    hasStatus
+                    name='KM'
+                    size='x-large'
+                    source={ChatBotAvatar}
+                    status='online'
+                    type='image'
+                    shape='square'
+                  />
+                </div>
+                <Widget header='' isElevated={true} className='p-4 self-start max-w-[55%] n-bg-palette-neutral-bg-weak'>
+                  <div>
+                    <ReactMarkdown
+                      components={{
+                        code: ({ children }) => (
+                          <span style={formattedTextStyle}>
+                            {children}
+                          </span>
+                        ),
+                        a: ({ ...props }) => (
+                          <TextLink type='external' href={props.href} target='_blank'>
+                            {props.children}
+                          </TextLink>
+                        ),
+                      }}
+                      remarkPlugins={[remarkGfm]}
+                    >
+                      {currentTypingText}
+                    </ReactMarkdown>
+                  </div>
+                  <div className='text-right align-bottom pt-3'>
+                    <Typography variant='body-small'>Typing...</Typography>
+                  </div>
+                </Widget>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className='n-bg-palette-neutral-bg-default border-t n-border-palette-neutral-border-weak p-4'>
+          <form onSubmit={handleSubmit} className='flex gap-2.5 w-full'>
+            <TextInput
+              className='flex-1'
+              value={inputMessage}
+              isFluid
+              onChange={handleInputChange}
+              htmlAttributes={{
+                type: 'text',
+                'aria-label': 'Chatbot Input',
+                placeholder: 'Type your message...',
               }}
-              onClose={handleCloseModal}
-              isOpen={isOpenModal}
-            >
-              <RetrievalInformation
-                sources={sourcesModal}
-                entities={entitiesModal}
-                model={modelModal}
-                timeTaken={timeTaken}
-                onClose={handleCloseModal}
-              />
-            </Modal>
+            />
+            <Button type='submit' isDisabled={!inputMessage.trim()}>
+              Send
+            </Button>
+          </form>
+        </div>
+
+        <Modal
+          modalProps={{
+            id: 'default-menu',
+            className: 'n-p-token-4 n-bg-palette-neutral-bg-weak n-rounded-lg min-w-[60%] max-h-[80%]',
+          }}
+          onClose={handleCloseModal}
+          isOpen={isOpenModal}
+        >
+          <RetrievalInformation sources={sourcesModal} model={modelModal} timeTaken={timeTaken} />
+        </Modal>
       </div>
-    </>
+    </div>
   );
 }

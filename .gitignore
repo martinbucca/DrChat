@@ -184,3 +184,7 @@ frontend/package-lock.json
 data/
 frontend/yarn.lock
 frontend/.npmrc
+/fronted/yarn.lock
+
+# service account firebase
+firebase-sa.json

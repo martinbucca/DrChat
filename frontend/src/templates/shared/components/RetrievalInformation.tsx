@@ -1,67 +1,41 @@
-/* eslint-disable no-confusing-arrow */
 import { useEffect, useRef, useState } from 'react';
-import { Box, Typography, Flex, IconButton, LoadingSpinner, Drawer } from '@neo4j-ndl/react';
-import { IoCloseOutline } from 'react-icons/io5';
 
-import './Retrieval.css';
-import DrChatLogo from '../assets/dr_chat_logo.png';
-
-import { setDriver, runQuery } from '../utils/Driver';
-
-import { ResetZoomIcon, FitToScreenIcon } from '@neo4j-ndl/react/icons';
-
-import type NVL from '@neo4j-nvl/base';
+import { Box, Flex, IconButton, Typography } from '@neo4j-ndl/react';
+import { ClockIconOutline, FitToScreenIcon, ResetZoomIcon } from '@neo4j-ndl/react/icons';
+import retrievalIllustration from '../assets/retrieval.png';
 
 import type { HitTargets, Node, Relationship } from '@neo4j-nvl/base';
 import { InteractiveNvlWrapper } from '@neo4j-nvl/react';
 import type { MouseEventCallbacks } from '@neo4j-nvl/react';
-import ReactMarkdown from 'react-markdown';
+// import { runRAGQuery, setDriver } from '../utils/Driver';
 
-type CypherProps = {
-  uri?: string;
-  username?: string;
-  password?: string;
+type RetrievalProps = {
+  sources: Array<string>;
+  model: string;
+  timeTaken: number;
 };
 
-type ExpandedNode = {
-  properties?: {
-    type?: string;
-    text?: string;
-    name?: string;
-    id?: string;
-    image_base64?: string;
-    text_as_html?: string;
-  };
-  captions?: {
-    labels?: string[];
-  }[];
-};
-
-function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) {
-
-  const nvl = useRef<NVL | null>(null);
-  const [uri, setURI] = useState(import.meta.env.VITE_NEO4J_URI);
-  const [username, setUsername] = useState(import.meta.env.VITE_NEO4J_USERNAME);
-  const [password, setPassword] = useState(import.meta.env.VITE_NEO4J_PASSWORD);
-  const [loading, setLoading] = useState(true);
-  const [isExpanded, handleIsExpanded] = useState(false);
-  const [expandedNode, setExpandedNode] = useState(null);
-
-  const handleExpand = (nodes, hitTargets, evt) => {
-      console.log('expandedNode:', nodes);
-      console.log('expandedNode.properties:', nodes?.properties);
-
-    setExpandedNode(nodes);
-    handleIsExpanded(true);
-  }
-
-  useEffect(() => {
-    run();
-  
-  }, []);
+function RetrievalInformation(props: RetrievalProps) {
+  const nvl = useRef<any>(null);
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [rels, setRels] = useState<Relationship[]>([]);
+
+  const mouseEventCallbacks: MouseEventCallbacks = {
+    onHover: (_element: Node | Relationship, _hitTargets: HitTargets, _evt: MouseEvent) => null,
+    onRelationshipRightClick: (_rel: Relationship, _hitTargets: HitTargets, _evt: MouseEvent) => null,
+    onNodeClick: (_node: Node, _hitTargets: HitTargets, _evt: MouseEvent) => null,
+    onNodeRightClick: (_node: Node, _hitTargets: HitTargets, _evt: MouseEvent) => null,
+    onNodeDoubleClick: (_node: Node, _hitTargets: HitTargets, _evt: MouseEvent) => null,
+    onRelationshipClick: (_rel: Relationship, _hitTargets: HitTargets, _evt: MouseEvent) => null,
+    onRelationshipDoubleClick: (_rel: Relationship, _hitTargets: HitTargets, _evt: MouseEvent) => null,
+    onCanvasClick: (_evt: MouseEvent) => null,
+    onCanvasDoubleClick: (_evt: MouseEvent) => null,
+    onCanvasRightClick: (_evt: MouseEvent) => null,
+    onDrag: (_nodes: Node[]) => null,
+    onPan: (_panning: { x: number; y: number }, _evt: MouseEvent) => null,
+    onZoom: (_zoomLevel: number) => null,
+  };
 
   const fitNodes = () => {
     nvl.current?.fit(nodes.map((n) => n.id));
@@ -70,141 +44,51 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
     nvl.current?.resetZoom();
   };
 
-  const mouseEventCallbacks: MouseEventCallbacks = {
-    onHover: (element: Node | Relationship, hitTargets: HitTargets, evt: MouseEvent) =>
-      console.log('onHover', element, hitTargets, evt),
-    onRelationshipRightClick: (rel: Relationship, hitTargets: HitTargets, evt: MouseEvent) =>
-      console.log('onRelationshipRightClick', rel, hitTargets, evt),
-    onNodeClick: (node: Node, hitTargets: HitTargets, evt: MouseEvent) =>
-      handleExpand(node, hitTargets, evt),
-    onNodeRightClick: (node: Node, hitTargets: HitTargets, evt: MouseEvent) =>
-      console.log('onNodeRightClick', node, hitTargets, evt),
-    onNodeDoubleClick: (node: Node, hitTargets: HitTargets, evt: MouseEvent) =>
-      console.log('onNodeDoubleClick', node, hitTargets, evt),
-    onRelationshipClick: (rel: Relationship, hitTargets: HitTargets, evt: MouseEvent) =>
-      console.log('onRelationshipClick', rel, hitTargets, evt),
-    onRelationshipDoubleClick: (rel: Relationship, hitTargets: HitTargets, evt: MouseEvent) =>
-      console.log('onRelationshipDoubleClick', rel, hitTargets, evt),
-    onCanvasClick: (evt: MouseEvent) => console.log('onCanvasClick', evt),
-    onCanvasDoubleClick: (evt: MouseEvent) => console.log('onCanvasDoubleClick', evt),
-    onCanvasRightClick: (evt: MouseEvent) => console.log('onCanvasRightClick', evt),
-    onDrag: (nodes: Node[]) => console.log('onDrag', nodes),
-    onPan: (evt: MouseEvent) => console.log('onPan', evt),
-    onZoom: (zoomLevel: number) => console.log('onZoom', zoomLevel),
-  };
-
-  function run() {
-    const formattedSources = sources.map((source) => `"${source}"`).join(',');
-    console.log(`[${formattedSources}]`);
-
-    const query1 = `
-    MATCH (a:Chunk)-[r:PART_OF_DOCUMENT]->(b:Document)
-    WHERE elementId(a) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    UNION
-    MATCH (a:Chunk)-[r:NEXT_CHUNK]-(b:Chunk)
-    WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    UNION
-    MATCH (a:Chunk)-[r:MENTIONS]-(b:Entity)
-    WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    UNION
-    MATCH (a:Chunk)-[r:RELATED_CONTENT]->(b:Image|Table)
-    WHERE elementId(a) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    LIMIT 500
-    `;
-
-    const query2 = `  
-    MATCH (a:Chunk)-[r2:PART_OF_DOCUMENT]-(d:Document) WHERE elementId(a) in [${formattedSources}]
-    MATCH (a)-[r]-(b)
-    WHERE elementId(b) IN [${formattedSources}]
-    RETURN a, r, b, r2, d LIMIT 1000
-
-    `;
-
-    setDriver(uri, username, password).then((isSuccessful) => {
-      runQuery(query1).then((result) => {
-
-        result.nodes.map((record: any) => {
-
-          const label = record.labels.includes('Document')
-            ? record.labels
-            : record.labels.includes('Entity')
-            ? record.properties.name
-            : record.labels.includes('Chunk')
-            ? "Chunk"
-            : record.properties.type
-
-
-          const color = record.labels.includes('Chunk')
-            ? '#0A6190'
-            : record.labels.includes('Document')
-            ? '#BCF194'
-            : record.labels.includes('Entity')
-            ? '#B38EFF'
-            : record.labels.includes('Image')
-            ? '#FFC300'
-            : '#FF8E6A'
-
-          setNodes((prevNodes) => [
-            ...prevNodes,
-            { id: record.id.toString(), color: color, captions: [{ value: label, labels: record.labels }], properties: record.properties },
-          ]);
-        });
-
-        result.rels.map((record: any) => {
-          setRels((prevRels) => [
-            ...prevRels,
-            {
-              id: record.id.toString(),
-              from: record.start.toString(),
-              to: record.end.toString(),
-              captions: [{ value: record.type.toString() }],
-            },
-          ]);
-        });
-        setLoading(false);
-      });
-    });
+  function retrieveSources() {
+    // This is only for rendering the sources nodes. Ideally, for each of the sources, you would use your retrieval query to get the nodes and relationships
+    // Example:
+    // setDriver('bolt://localhost:7687', 'neo4j', 'password');
+    // runRAGQuery(props.sources).then((nvlGraph) => {
+    //     setNodes(nvlGraph.nodes);
+    //     setRels(nvlGraph.relationships);
+    // });
+    const retrievedNodes = props.sources.map((source, index) => ({
+      id: `${index}`,
+      color: '#0A6190',
+      captions: [{ value: source }],
+    }));
+    setNodes(retrievedNodes);
+    setRels([{ id: '10', from: '0', to: '1', captions: [{ value: 'MOCKUP_DATA' }] }]);
   }
 
+  useEffect(() => {
+    retrieveSources();
+  }, []);
+
   return (
-    <Box className='n-bg-palette-neutral-bg-weak p-4' style={{height: '80vh'}}>
-      <IconButton
-        className='n-size-token-7'
-        ariaLabel='Close modal'
-        onClick={onClose}
-        style={{
-          position: 'absolute',
-          top: 16,   // distancia desde el top del modal
-          right: 16, // distancia desde la derecha del modal
-          zIndex: 2000,
-        }}
-      >
-        <IoCloseOutline size={20} />
-      </IconButton>
+    <Box className='n-bg-palette-neutral-bg-weak p-4'>
       <Flex flexDirection='row' className='flex flex-row p-6 items-center'>
-        <img src={DrChatLogo} alt='icon' style={{ width: 95, height: 95, marginRight: 10 }} />
+        <img src={retrievalIllustration} alt='icon' style={{ width: 95, height: 95, marginRight: 10 }} />
         <Box className='flex flex-col'>
           <Typography variant='h2'>Retrieval information</Typography>
+          <Typography className='mb-2' variant='body-medium'>
+            To generate this response, we used the model <span className='font-bold italic'>{props.model}</span>.
+            <Typography className='pl-1 italic' variant='body-small'>
+              <ClockIconOutline className='w-4 h-4 inline-block mb-1' /> {props.timeTaken / 1000} seconds
+            </Typography>
+          </Typography>
         </Box>
       </Flex>
-      <Box className='button-container' sx={{ display: 'flex', justifyContent: 'space-between', mt: 2}}>
+      <Box className='button-container flex justify-between mt-2'>
         <div
           style={{
             margin: 10,
             borderRadius: 25,
-            border: '2px solid #2A93A0',
-            height: 'calc(80vh - 163px)',
-            flexGrow: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            background: `rgb(var(--theme-palette-primary-bg-weaker));`,
+            border: '2px solid #2AADA5',
+            height: '60vh',
+            background: `rgb(var(--theme-palette-primary-bg-weaker))`,
             boxShadow: `2px -2px 10px grey`,
             position: 'relative',
-            overflow: 'hidden',
           }}
         >
           <Flex
@@ -224,135 +108,18 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
               <ResetZoomIcon />
             </IconButton>
           </Flex>
-          {loading ? (
-            <LoadingSpinner
-              size='large'
-              style={{
-                position: 'absolute',
-                top: '50%',
-                right: '50%',
-              }}
-            />
-          ) : (
-            <></>
-          )}
           <InteractiveNvlWrapper
-            className='rounded-5xl overflow-hidden'
             ref={nvl}
             nodes={nodes}
             rels={rels}
-            onClick={(evt) => console.log('custom click event', evt)}
+            onClick={() => null}
             mouseEventCallbacks={mouseEventCallbacks}
-            style={{ flexGrow: 1 }}
             nvlOptions={{
-              initialZoom: 0,
+              initialZoom: 2,
               layout: 'd3Force',
               relationshipThreshold: 1,
-              selectedBorderColor: '#F5F5F5',
             }}
           />
-          <Box className='max-w-[500px]'>
-            <Drawer isCloseable={true} isExpanded={isExpanded} position="left" type="overlay" className="rounded-tl-5xl rounded-bl-5xl" onExpandedChange={() => {
-              handleIsExpanded(false);
-            }}>
-
-              <Drawer.Header>
-
-                <div>
-                  <Typography variant='mb-2' variant='body-medium'>Node Details</Typography>
-                </div>
-                <div>
-                  {expandedNode?.captions[0]?.labels?.includes('Chunk')
-                  ? (<Typography variant='h5'>Text Chunk</Typography>)
-                  : expandedNode?.captions[0]?.labels?.includes('Document')
-                  ? (<Typography variant='h5'>Document</Typography>)
-                  : expandedNode?.captions[0]?.labels?.includes('Entity')
-                  ? (<Typography variant='h5'>Entity</Typography>)
-                  : expandedNode?.captions[0]?.labels?.includes('Image')
-                  ? (<Typography variant='h5'>Image</Typography>)
-                  : expandedNode?.captions[0]?.labels?.includes('Table')
-                  ? (<Typography variant='h5'>Table</Typography>)
-                  : (<Typography variant='h5'>Other</Typography>)}
-                </div>
-              </Drawer.Header>
-              <Drawer.Body className="max-w-[500px] pl-5">
-                {/* NarrativeText Rendering */}
-                {expandedNode?.properties?.type === 'NarrativeText' && (
-                  <>
-                    <figcaption className="caption-top text-xs mb-2">Text</figcaption>
-                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                      {expandedNode.properties.text ?? expandedNode.properties.name ?? expandedNode.properties.id}
-                    </ReactMarkdown>
-                    <div style={{ height: '12px' }}></div>
-                    <figcaption className="caption-top text-xs mt-4 mb-2">Page</figcaption>
-                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                      {String(expandedNode.properties.page_number.low)}
-                    </ReactMarkdown>
-                  </>
-                )}
-
-                {/* Document Rendering */}
-                {expandedNode?.captions?.[0]?.labels?.includes('Document') && (
-                  <>
-                    <figcaption className="caption-top text-xs mb-2">Name</figcaption>
-                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                      {expandedNode.properties.name}
-                    </ReactMarkdown>
-                  </>
-                )}
-
-                {/* Document or Entity Labels */}
-                {expandedNode?.captions?.[0]?.labels?.includes('Entity') &&  (
-                  <>
-                  <figcaption className="caption-top text-xs mb-2">Name</figcaption>
-                  <div style={{ overflowWrap: 'break-word', width: '250px' }}>
-                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                      {expandedNode.properties.name}
-                    </ReactMarkdown>
-                  </div>
-                  <div style={{ height: '12px' }}></div>
-                  <figcaption className="caption-top text-xs mb-2">Type</figcaption>
-                  <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                    {expandedNode.properties.id}
-                  </ReactMarkdown>
-                  </>
-                )}
-
-                {/* Image Rendering */}
-                {expandedNode?.properties?.type === 'Image' && (
-                  <>
-                    <figcaption className="caption-top text-xs mb-2">Image</figcaption>
-                    <img
-                      src={`data:image/png;base64,${expandedNode.properties.image_base64}`}
-                      alt="Preview"
-                      className="max-w-full object-top overflow-auto"
-                    />
-                  </>
-                )}
-                <div style={{ height: '12px' }}></div>
-                {expandedNode?.properties?.type === 'Image' && expandedNode.properties?.text && (
-                  <>
-                    <figcaption className="caption-top text-xs mt-4 mb-2">Text</figcaption>
-                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                      {expandedNode.properties.text}
-                    </ReactMarkdown>
-                  </>
-                )}
-
-                {/* Table Image */}
-                {expandedNode?.properties?.type === 'Table' && (
-                  <>
-                    <img
-                      src={`data:image/png;base64,${expandedNode.properties.image_base64}`}
-                      alt="Preview"
-                      className="max-w-full object-top overflow-auto"
-                    />
-                  </>
-                )}
-  
-              </Drawer.Body>
-            </Drawer>
-          </Box>
         </div>
       </Box>
     </Box>
