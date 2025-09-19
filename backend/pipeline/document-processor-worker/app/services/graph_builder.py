@@ -221,7 +221,7 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
 
     def _create_vector_indexes(self):
         create_vector_index(
-            self.driver,
+            self.driver.driver,
             VECTOR_INDEX_NAME,
             label="Chunk",
             embedding_property="embedding",

@@ -1,9 +1,4 @@
 services:
-<<<<<<< HEAD
-  db:
-    image: postgres:15
-    container_name: user-db
-=======
   # Database services
   
   mongodb:
@@ -80,15 +75,9 @@ services:
     env_file:
       - ./.env
       - ./backend/ingestion/file-service/.env
->>>>>>> origin/main
     environment:
-      POSTGRES_DB: drchat
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: secret
+      - STORAGE_DIR=/app/storage
     volumes:
-<<<<<<< HEAD
-      - pgdata:/var/lib/postgresql/data
-=======
       - ./storage:/app/storage
     restart: unless-stopped
     depends_on:
@@ -112,50 +101,39 @@ services:
     networks:
       - drchat-network
     restart: unless-stopped
->>>>>>> origin/main
-
-  chat-service:
-    build:
-      context: ./backend/user/chat-service
-      dockerfile: Dockerfile
-    container_name: chat-service
-    ports:
-      - "5001:5001"
-    env_file:
-      - backend/user/chat-service/.env
-    volumes:
-      - ./backend/user/chat-service:/app
-    command: ["python", "-m", "app.main"]
 
   chat-history-service:
     build:
       context: ./backend/user/chat-history-service
       dockerfile: Dockerfile
-    container_name: chat-history-service
     ports:
       - "5003:5003"
     env_file:
-      - backend/user/chat-history-service/.env
-    volumes:
-      - ./backend/user/chat-history-service:/app
-    command: ["python", "-m", "app.main"]
+      - ./.env
+    depends_on:
+      - neo4j
+    networks:
+      - drchat-network
+    restart: unless-stopped
 
-<<<<<<< HEAD
-  frontend:
+  chat-service:
     build:
-      context: ./frontend
+      context: ./backend/user/chat-service
       dockerfile: Dockerfile
-    container_name: frontend
     ports:
-      - "5173:5173"
+      - "5002:8000"
     env_file:
-      - frontend/.env
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-=======
+      - ./.env
+      - ./backend/user/chat-service/.env
+    depends_on:
+      - neo4j
+      - document-processor-worker
+    networks:
+      - drchat-network
+    restart: unless-stopped
+
+  # Frontend service
+
   # frontend:
   #   build:
   #     context: ./frontend
@@ -164,31 +142,17 @@ services:
   #     - "5000:3000"
   #   networks:
   #     - drchat-network
->>>>>>> origin/main
 
-  user-service:
-    build:
-      context: ./backend/user/user-service
-      dockerfile: Dockerfile
-    container_name: user-service
-    depends_on:
-      - db
-    environment:
-      - DATABASE_URL=postgresql+psycopg://app:secret@db:5432/drchat
-    ports:
-      - "5002:5002"
-    volumes:
-      - ./backend/user/user-service:/app
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5002", "--reload"]
+# Networks
+networks:
+  drchat-network:
+    driver: bridge
 
+# Volumes
 volumes:
-<<<<<<< HEAD
-  pgdata:
-=======
   mongodb_data:
     driver: local
   neo4j_data:
     driver: local
   neo4j_logs:
     driver: local  
->>>>>>> origin/main

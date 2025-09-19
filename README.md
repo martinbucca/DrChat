@@ -6,18 +6,79 @@ Los archivos PDF pueden ser enviados por los usuarios a través del frontend. Lo
 
 ---
 
-## 🔧 Variables de entorno
+## 📋 Prerrequisitos
 
-El proyecto utiliza un sistema de configuración centralizada con archivos `.env` específicos por servicio. Copia y configura los archivos necesarios:
+- **Docker** y **Docker Compose** instalados
+- **Make** (opcional, para usar comandos simplificados)
+- Claves de API configuradas para:
+  - Azure OpenAI (embeddings)
+  - Unstructured API (procesamiento de PDFs)
 
+---
+
+## 🚀 Guía de inicio rápido
+
+### 1. Clonar el repositorio
 ```bash
-# Variables generales del proyecto (.env)
-cp .env.example .env
+git clone <repository-url>
+cd DrChat
+```
 
-# Variables específicas por servicio
+### 2. Configurar variables de entorno
+```bash
+# Copiar archivos de configuración
+cp .env.example .env
 cp backend/ingestion/file-service/.env.example backend/ingestion/file-service/.env
 cp backend/pipeline/document-processor-worker/.env.example backend/pipeline/document-processor-worker/.env
+cp backend/user/chat-service/.env.example backend/user/chat-service/.env
+
+# Editar los archivos .env con tus configuraciones específicas
 ```
+
+### 3. Levantar el proyecto
+
+#### Usando Makefile (recomendado):
+```bash
+# Ver todos los comandos disponibles
+make help
+
+# Levantar proyecto completo con bases de datos locales
+make up
+
+# Levantar con Neo4j externo (configurar NEO4J_URI en .env)
+make up-external-neo4j
+
+# Levantar con MongoDB externo (configurar MONGODB_URI en .env)  
+make up-external-mongo
+
+# Levantar con ambas bases de datos externas
+make up-external
+
+# Ver estado de contenedores
+make status
+
+# Ver logs de servicios principales
+make logs
+
+# Detener proyecto
+make down
+```
+
+### 4. Acceso a los servicios
+
+Una vez que los servicios estén ejecutándose:
+
+| Servicio | URL | Descripción |
+|----------|-----|-------------|
+| **Frontend** | http://localhost:5000 | Interfaz web de DrChat |
+| **File Service** | http://localhost:8001/docs | API de gestión de archivos (Swagger) |
+| **File Service Health Check** | http://localhost:8001/ | Estado del file-service |
+| **Chat History Service** | http://localhost:5003/docs | API de historial de chat (Swagger) |
+| **Neo4j Browser** | http://localhost:7474 | Interfaz web de Neo4j (usuario: neo4j, contraseña: password) |
+| **MongoDB** | localhost:27017 | Base de datos (acceso directo) |
+| **Kafka** | localhost:9092 | Broker de mensajes |
+
+---
 
 ### **📋 Variables Generales (`.env`)**
 
@@ -28,7 +89,6 @@ cp backend/pipeline/document-processor-worker/.env.example backend/pipeline/docu
 | `NEO4J_URI`                 | URI de conexión para la base de datos Neo4j.                                |
 | `NEO4J_USERNAME`            | Usuario para autenticación en Neo4j.                                        |
 | `NEO4J_PASSWORD`            | Contraseña para autenticación en Neo4j.                                     |
-| `NEO4J_DATABASE`            | Nombre de la base de datos utilizada en Neo4j.                              |
 | `KAFKA_BOOTSTRAP_SERVERS`   | Servidores de Kafka (ej: `kafka:29092`).                                   |
 | `KAFKA_FILE_UPLOAD_TOPIC`   | Tópico de Kafka para eventos de archivos (ej: `file-upload-events`).       |
 | `KAFKA_GROUP_ID`            | ID del grupo de consumidores Kafka (ej: `document-processor-group`).       |
@@ -50,8 +110,14 @@ cp backend/pipeline/document-processor-worker/.env.example backend/pipeline/docu
 | `AZURE_OPENAI_API_KEY`        | API Key para Azure OpenAI (embeddings).                        |
 | `AZURE_OPENAI_ENDPOINT`       | Endpoint de Azure OpenAI.                                      |
 | `AZURE_OPENAI_EMBEDDINGS_MODEL` | Modelo de embeddings de Azure OpenAI.                       |
+| `NEO4J_DATABASE`              | Nombre de la base de datos Neo4j para documentos (ej: `documents`). |
 | `VECTOR_INDEX_NAME`           | Nombre del índice vectorial en Neo4j.                          |
 | `FULLTEXT_INDEX_NAME`         | Nombre del índice de texto completo en Neo4j.                  |
+
+#### **Chat History Service** (`backend/user/chat-history-service/.env`)
+| Variable        | Descripción                                                               |
+|-----------------|---------------------------------------------------------------------------|
+| `NEO4J_DATABASE`| Nombre de la base de datos Neo4j para historial de chat (ej: `chat_history`). |
 
 ---
 
@@ -104,54 +170,3 @@ El backend está dividido en tres módulos principales: **Ingestion**, **Pipelin
 - `POST /chat/send`: Recibe un mensaje de usuario, lo almacena y responde. En la respuesta se incluye el ID del chat.
 - `GET /chat/{chat_id}`: Obtiene el historial de mensajes de un chat por su ID.
 - `GET /chat/{chat_id}/last`: Obtiene el último mensaje de un chat.
-
-## 🚀 **Cómo ejecutar el proyecto**
-
-El proyecto utiliza **Docker Compose** para orquestar todos los servicios. Asegúrate de tener Docker y Docker Compose instalados en tu sistema.
-
-### **📋 Prerrequisitos**
-
-1. **Docker** y **Docker Compose** instalados
-2. Archivo `.env` configurado (usa `.env.example` como referencia)
-
-### **🔧 Configuración inicial**
-
-```bash
-# Clonar el repositorio
-git clone <repository-url>
-cd DrChat
-
-# Copiar y configurar variables de entorno
-cp .env.example .env
-# Editar .env con tus configuraciones específicas
-```
-
-### **🐳 Comandos Docker**
-
-```bash
-# Construir e iniciar todos los servicios
-docker-compose up --build -d
-
-# Ver el estado de los servicios
-docker-compose ps
-
-# Reconstruir un servicio específico
-docker-compose build file-service
-docker-compose up file-service -d
-
-# Parar todos los servicios
-docker-compose down
-```
-
-### **🌐 Acceso a los servicios**
-
-Una vez que los servicios estén ejecutándose:
-
-| Servicio | URL | Descripción |
-|----------|-----|-------------|
-| **Frontend** | http://localhost:5000 | Interfaz web de DrChat |
-| **File Service** | http://localhost:8001/docs | API de gestión de archivos (Swagger) |
-| **File Service Health Check** | http://localhost:8001/ | Estado del file-service |
-| **Neo4j Browser** | http://localhost:7474 | Interfaz web de Neo4j |
-| **MongoDB** | localhost:27017 | Base de datos (acceso directo) |
-| **Kafka** | localhost:9092 | Broker de mensajes |

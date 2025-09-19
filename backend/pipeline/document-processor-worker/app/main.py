@@ -27,7 +27,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 driver_instance = Neo4jDriver.get_instance()
-driver = driver_instance.driver
 
 embedding_instance = Embedding.get_instance()
 embedder = embedding_instance.embedder
@@ -36,7 +35,7 @@ chunker_instance = Chunker.get_instance()
 
 entity_relationship_extractor_instance = EntityRelationshipExtractor.get_instance()
 
-graph_builder_instance = GraphBuilder.get_instance(driver, embedder, entity_relationship_extractor_instance)
+graph_builder_instance = GraphBuilder.get_instance(driver_instance, embedder, entity_relationship_extractor_instance)
 
 document_processor_instance = DocumentsProcessor.get_instance(
     chunker_instance,
