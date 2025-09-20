@@ -1,13 +1,28 @@
 # User Service (Auth)
 
-Servicio de autenticación mínimo para registro e ingreso de usuarios. Expone endpoints REST vía FastAPI y persiste en PostgreSQL.
-Incluye integración con Firebase Authentication para enviar correos de verificación al registrar usuarios.
+Servicio de autenticación para registro e ingreso de usuarios.  
+Expone endpoints REST vía **FastAPI** y persiste usuarios en **PostgreSQL**.  
+Integra **Firebase Admin** para enviar correos de verificación de cuenta al registrarse.
 
-- Puerto: `5002`
+- Puerto por defecto: `5002`
 - Base path: `/api`
-- Endpoints:
-  - `POST /api/register` → registra usuario
-  - `POST /api/login` → autentica usuario
+- Endpoints principales:
+  - `POST /api/register` → registra usuario y envía email de verificación
+  - `POST /api/login` → autentica usuario con email y contraseña
+
+---
+
+## 🔐 Manejo de contraseñas
+
+- Se usa [`passlib`](https://passlib.readthedocs.io/) con **bcrypt** para generar un **hash seguro** antes de persistir en la base de datos.
+- El hash se guarda en la columna `password` (tipo `VARCHAR(255)` o `TEXT`) 
+
+## 📧 Verificación de correo
+
+- Al registrar un usuario se genera un **link de verificación** con **Firebase Admin** y se envía vía **Resend**.
+- No se guarda ni se envía la contraseña a Firebase.
+- Si las variables de Firebase no están configuradas, el registro funciona pero no se enviará el correo.
+
 
 ## Correr con Docker Compose (recomendado)
 
@@ -110,7 +125,3 @@ pip install -r requirements.txt
 # Opcional: export DATABASE_URL si no usás Docker para la DB
 uvicorn app.main:app --host 0.0.0.0 --port 5002 --reload
 ```
-
-## Seguridad
-
-Este flujo es básico para desarrollo: el “token” es un placeholder y no se valida en otros servicios. Para producción, reemplazar por JWT u otro esquema, guardar tokens en cookies `httpOnly` y validar en cada request de backend.
