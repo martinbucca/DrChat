@@ -198,14 +198,16 @@ services:
 
   # Frontend service
 
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "5000:3000"
-  #   networks:
-  #     - drchat-network
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5173"
+    env_file:
+      - ./frontend/.env
+    networks:
+      - drchat-network
 
 # Networks
 networks:
