@@ -1,22 +1,6 @@
 services:
   # Database services
   
-  mongodb:
-    image: mongo:7.0
-    container_name: drchat-mongodb
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    networks:
-      - drchat-network
-
   postgres:
     image: postgres:17-alpine
     container_name: drchat-postgres
@@ -121,7 +105,7 @@ services:
       - ./storage:/app/storage
     restart: unless-stopped
     depends_on:
-      mongodb:
+      postgres:
         condition: service_healthy
       kafka:
         condition: service_healthy
@@ -212,8 +196,6 @@ networks:
 
 # Volumes
 volumes:
-  mongodb_data:
-    driver: local
   postgres_data:
     driver: local
   neo4j_data:

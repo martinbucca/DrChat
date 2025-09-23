@@ -1,7 +1,7 @@
 # DrChat - Makefile para gestionar diferentes configuraciones de Docker Compose
 # Descripción: Comandos para levantar el proyecto con diferentes configuraciones de bases de datos
 
-.PHONY: help up up-external-neo4j up-external-mongo up-external-postgres up-external down logs build status
+.PHONY: help up up-external-neo4j up-external-postgres up-external down logs build status
 
 # Comando por defecto - mostrar ayuda
 help:
@@ -10,7 +10,6 @@ help:
 	@echo "=== Comandos principales ==="
 	@echo "  up                  - Levantar proyecto completo (con todas las bases de datos locales)"
 	@echo "  up-external-neo4j   - Levantar proyecto con Neo4j externo (configurar NEO4J_URI en .env)"
-	@echo "  up-external-mongo   - Levantar proyecto con MongoDB externo (configurar MONGODB_URI en .env)"
 	@echo "  up-external-postgres - Levantar proyecto con PostgreSQL externo (configurar POSTGRES_* en .env)"
 	@echo "  up-external         - Levantar proyecto con todas las bases de datos externas"
 	@echo ""
@@ -31,11 +30,6 @@ up-external-neo4j:
 	@echo "Asegúrate de tener configurado NEO4J_URI en tu archivo .env"
 	docker compose up -d --scale neo4j=0
 
-up-external-mongo:
-	@echo "Levantando DrChat con MongoDB externo..."
-	@echo "Asegúrate de tener configurado MONGODB_URI en tu archivo .env"
-	docker compose up -d --scale mongodb=0
-
 up-external-postgres:
 	@echo "Levantando DrChat con PostgreSQL externo..."
 	@echo "Asegúrate de tener configuradas las variables POSTGRES_* en tu archivo .env"
@@ -43,8 +37,8 @@ up-external-postgres:
 
 up-external:
 	@echo "Levantando DrChat con bases de datos externas..."
-	@echo "Asegúrate de tener configurados NEO4J_URI, MONGODB_URI y POSTGRES_* en tu archivo .env"
-	docker compose up -d --scale neo4j=0 --scale mongodb=0 --scale postgres=0
+	@echo "Asegúrate de tener configurados NEO4J_URI y POSTGRES_* en tu archivo .env"
+	docker compose up -d --scale neo4j=0 --scale postgres=0
 
 # Comandos para detener servicios
 down:

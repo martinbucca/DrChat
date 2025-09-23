@@ -209,7 +209,7 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
         return tx.run(query, {"filename": filename, "session_id": session_id}).consume()
 
     def _load_graph(self, json_data, filename, session_id):
-        with self.driver.session() as session:
+        with self.driver.driver.session() as session:
             summary_chunks = session.execute_write(self._run_query, self.CHUNK_QUERY, json_data)
             summary_next = session.execute_write(self._run_query_next_chunk_rel, self.NEXT_CHUNK_QUERY, filename, session_id)
             logger.info(f"nodes created => {summary_chunks.counters.nodes_created}, rels created => {summary_chunks.counters.relationships_created + summary_next.counters.relationships_created}")

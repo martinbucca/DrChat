@@ -3,10 +3,12 @@ from pathlib import Path
 
 
 class Settings:
-    # MongoDB configuration
-    MONGO_URL: str = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-    DATABASE_NAME: str = os.getenv("MONGODB_DATABASE_NAME", "drchat")
-    COLLECTION_NAME: str = "files"
+    # PostgreSQL configuration
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST")
+    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB")
     
     # Storage configuration
     STORAGE_DIR: Path = Path(os.getenv("STORAGE_DIR", "../../../storage"))

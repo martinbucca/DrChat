@@ -48,10 +48,10 @@ make up
 # Levantar con Neo4j externo (configurar NEO4J_URI en .env)
 make up-external-neo4j
 
-# Levantar con MongoDB externo (configurar MONGODB_URI en .env)  
-make up-external-mongo
+# Levantar con PostgreSQL externo (configurar POSTGRES_* en .env)
+make up-external-postgres
 
-# Levantar con ambas bases de datos externas
+# Levantar con bases de datos externas
 make up-external
 
 # Ver estado de contenedores
@@ -77,7 +77,7 @@ Una vez que los servicios estén ejecutándose:
 | **Chat History Service** | http://localhost:8003/docs | API de historial de chat (Swagger) |
 | **User Service** | http://localhost:8004/docs | API de usuarios (Swagger) |
 | **Neo4j Browser** | http://localhost:7474 | Interfaz web de Neo4j (usuario: neo4j, contraseña: password) |
-| **MongoDB** | localhost:27017 | Base de datos (acceso directo) |
+| **PostgreSQL** | localhost:5432 | Base de datos relacional (acceso directo) |
 | **Kafka** | localhost:9092 | Broker de mensajes |
 
 ---
@@ -92,8 +92,6 @@ Contiene toda la configuración para los servicios backend y base de datos:
 | Variable                        | Descripción                                                                 |
 |---------------------------------|-----------------------------------------------------------------------------|
 | **Base de Datos**               |                                                                             |
-| `MONGODB_URL`                   | URL de conexión para MongoDB (ej: `mongodb://mongodb:27017/drchat`)        |
-| `MONGODB_DATABASE_NAME`         | Nombre de la base de datos MongoDB (ej: `drchat`)                          |
 | `NEO4J_URI`                     | URI de conexión para Neo4j (ej: `bolt://neo4j:7687`)                      |
 | `NEO4J_USERNAME`                | Usuario para autenticación en Neo4j                                        |
 | `NEO4J_PASSWORD`                | Contraseña para autenticación en Neo4j                                     |
@@ -162,7 +160,7 @@ El backend está dividido en tres módulos principales: **Ingestion**, **Pipelin
 
 #### `file-service`
 **Descripción:**  
-👉 Microservicio desarrollado con **FastAPI** que se encarga de recibir archivos PDF, guardarlos en el directorio de almacenamiento y mantener un registro de metadatos en **MongoDB**. El servicio utiliza una arquitectura modular con separación clara de responsabilidades y está completamente containerizado con Docker.
+👉 Microservicio desarrollado con **FastAPI** que se encarga de recibir archivos PDF, guardarlos en el directorio de almacenamiento y mantener un registro de metadatos en **PostgreSQL**. El servicio utiliza una arquitectura modular con separación clara de responsabilidades y está completamente containerizado con Docker.
 
 **Endpoints:**
 - `GET /`: Health check del servicio
@@ -185,7 +183,7 @@ El backend está dividido en tres módulos principales: **Ingestion**, **Pipelin
 
 #### `chat-service`
 **Descripción:**  
-👉 Microservicio encargado de recibir los mensajes de los usuarios y almacenarlos en una colección de MongoDB (`chats`). Para responder, se comunica con el `retriever-service`, que obtiene el contexto y genera la respuesta.
+👉 Microservicio encargado de recibir los mensajes de los usuarios y almacenarlos en la base de datos. Para responder, se comunica con el `retriever-service`, que obtiene el contexto y genera la respuesta.
 
 **Endpoints:**
 - `POST /chat/send`: Recibe un mensaje de usuario, lo almacena y responde. En la respuesta se incluye el ID del chat.
