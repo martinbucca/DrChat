@@ -115,7 +115,6 @@ services:
       - "8001:8000"  
     env_file:
       - ./.env
-      - ./backend/ingestion/file-service/.env
     environment:
       - STORAGE_DIR=/app/storage
     volumes:
@@ -135,7 +134,6 @@ services:
       dockerfile: Dockerfile
     env_file:
       - ./.env
-      - ./backend/pipeline/document-processor-worker/.env
     volumes:
       - ./storage:/app/storage
     depends_on:
@@ -170,7 +168,6 @@ services:
       - "8002:8000"
     env_file:
       - ./.env
-      - ./backend/user/chat-service/.env
     depends_on:
       neo4j:
         condition: service_healthy
@@ -188,7 +185,6 @@ services:
       - "8004:8000"
     env_file:
       - ./.env
-      - ./backend/user/user-service/.env
     depends_on:
       postgres:
         condition: service_healthy

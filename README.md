@@ -28,11 +28,11 @@ cd DrChat
 ```bash
 # Copiar archivos de configuración
 cp .env.example .env
-cp backend/ingestion/file-service/.env.example backend/ingestion/file-service/.env
-cp backend/pipeline/document-processor-worker/.env.example backend/pipeline/document-processor-worker/.env
-cp backend/user/chat-service/.env.example backend/user/chat-service/.env
+cp frontend/.env.example frontend/.env
 
 # Editar los archivos .env con tus configuraciones específicas
+# - .env: Configuración para todos los servicios backend
+# - frontend/.env: Configuración específica del frontend
 ```
 
 ### 3. Levantar el proyecto
@@ -82,44 +82,63 @@ Una vez que los servicios estén ejecutándose:
 
 ---
 
-### **📋 Variables Generales (`.env`)**
+## 📋 Configuración de Variables de Entorno
 
-| Variable                    | Descripción                                                                 |
-|-----------------------------|-----------------------------------------------------------------------------|
-| `MONGODB_URL`               | URL de conexión para MongoDB (ej: `mongodb://mongodb:27017/drchat`).        |
-| `MONGODB_DATABASE_NAME`     | Nombre de la base de datos MongoDB (ej: `drchat`).                          |
-| `NEO4J_URI`                 | URI de conexión para la base de datos Neo4j.                                |
-| `NEO4J_USERNAME`            | Usuario para autenticación en Neo4j.                                        |
-| `NEO4J_PASSWORD`            | Contraseña para autenticación en Neo4j.                                     |
-| `KAFKA_BOOTSTRAP_SERVERS`   | Servidores de Kafka (ej: `kafka:29092`).                                   |
-| `KAFKA_FILE_UPLOAD_TOPIC`   | Tópico de Kafka para eventos de archivos (ej: `file-upload-events`).       |
-| `KAFKA_GROUP_ID`            | ID del grupo de consumidores Kafka (ej: `document-processor-group`).       |
-| `FILE_SERVICE_URL`          | URL del servicio de archivos (ej: `http://file-service:8000`).              |
+El proyecto utiliza una configuración simplificada con solo **dos archivos** de variables de entorno:
 
-### **📄 Variables por Servicio**
+### **Archivo Principal (`.env`)**
+Contiene toda la configuración para los servicios backend y base de datos:
 
-#### **File Service** (`backend/ingestion/file-service/.env`)
-| Variable      | Descripción                                                                 |
-|---------------|-----------------------------------------------------------------------------|
-| `STORAGE_DIR` | Directorio donde se almacenan los archivos subidos (ej: `/app/storage`).    |
-| `LOG_LEVEL`   | Nivel de logging para los servicios (ej: `INFO`, `DEBUG`, `ERROR`).         |
+| Variable                        | Descripción                                                                 |
+|---------------------------------|-----------------------------------------------------------------------------|
+| **Base de Datos**               |                                                                             |
+| `MONGODB_URL`                   | URL de conexión para MongoDB (ej: `mongodb://mongodb:27017/drchat`)        |
+| `MONGODB_DATABASE_NAME`         | Nombre de la base de datos MongoDB (ej: `drchat`)                          |
+| `NEO4J_URI`                     | URI de conexión para Neo4j (ej: `bolt://neo4j:7687`)                      |
+| `NEO4J_USERNAME`                | Usuario para autenticación en Neo4j                                        |
+| `NEO4J_PASSWORD`                | Contraseña para autenticación en Neo4j                                     |
+| `POSTGRES_HOST`                 | Host de PostgreSQL (ej: `postgres`)                                        |
+| `POSTGRES_PORT`                 | Puerto de PostgreSQL (ej: `5432`)                                          |
+| `POSTGRES_USER`                 | Usuario de PostgreSQL                                                       |
+| `POSTGRES_PASSWORD`             | Contraseña de PostgreSQL                                                   |
+| `POSTGRES_DB`                   | Nombre de la base de datos PostgreSQL                                      |
+| **Kafka**                       |                                                                             |
+| `KAFKA_BOOTSTRAP_SERVERS`       | Servidores de Kafka (ej: `kafka:29092`)                                   |
+| `KAFKA_FILE_UPLOAD_TOPIC`       | Tópico de Kafka para eventos de archivos                                   |
+| `KAFKA_GROUP_ID`                | ID del grupo de consumidores Kafka                                         |
+| **URLs de Servicios**           |                                                                             |
+| `FILE_SERVICE_URL`              | URL del servicio de archivos                                               |
+| `CHAT_SERVICE_URL`              | URL del servicio de chat                                                   |
+| `CHAT_HISTORY_SERVICE_URL`      | URL del servicio de historial de chat                                      |
+| `USER_SERVICE_URL`              | URL del servicio de usuarios                                               |
+| **IA/ML**                       |                                                                             |
+| `AZURE_OPENAI_API_KEY`          | API Key para Azure OpenAI                                                  |
+| `AZURE_OPENAI_API_VERSION`      | Versión de la API de Azure OpenAI                                          |
+| `AZURE_OPENAI_ENDPOINT`         | Endpoint de Azure OpenAI                                                   |
+| `AZURE_OPENAI_EMBEDDINGS_MODEL` | Modelo de embeddings de Azure OpenAI                                       |
+| `LLM_CHAT_MODEL`                | Modelo de chat del LLM                                                     |
+| `GROQ_API_BASE`                 | URL base de la API de Groq                                                 |
+| `GROQ_API_KEY`                  | API Key para Groq                                                          |
+| **Procesamiento de Documentos** |                                                                             |
+| `UNSTRUCTURED_API_KEY`          | API Key para el servicio Unstructured                                      |
+| `UNSTRUCTURED_URL`              | URL del servicio Unstructured                                              |
+| `VECTOR_INDEX_NAME`             | Nombre del índice vectorial en Neo4j                                       |
+| `FULLTEXT_INDEX_NAME`           | Nombre del índice de texto completo en Neo4j                               |
+| **Almacenamiento y Logs**       |                                                                             |
+| `STORAGE_DIR`                   | Directorio de almacenamiento de archivos                                   |
+| `LOG_LEVEL`                     | Nivel de logging (INFO, DEBUG, ERROR)                                      |
+| **Autenticación**               |                                                                             |
+| `FIREBASE_WEB_API_KEY`          | API Key de Firebase                                                        |
+| `GOOGLE_APPLICATION_CREDENTIALS`| Ruta al archivo de credenciales de Firebase                                |
 
-#### **Document Processor Worker** (`backend/pipeline/document-processor-worker/.env`)
-| Variable                      | Descripción                                                     |
-|-------------------------------|-----------------------------------------------------------------|
-| `UNSTRUCTURED_API_KEY`        | API Key para el servicio Unstructured (procesamiento de PDFs). |
-| `UNSTRUCTURED_URL`            | URL del servicio Unstructured.                                 |
-| `AZURE_OPENAI_API_KEY`        | API Key para Azure OpenAI (embeddings).                        |
-| `AZURE_OPENAI_ENDPOINT`       | Endpoint de Azure OpenAI.                                      |
-| `AZURE_OPENAI_EMBEDDINGS_MODEL` | Modelo de embeddings de Azure OpenAI.                       |
-| `NEO4J_DATABASE`              | Nombre de la base de datos Neo4j para documentos (ej: `documents`). |
-| `VECTOR_INDEX_NAME`           | Nombre del índice vectorial en Neo4j.                          |
-| `FULLTEXT_INDEX_NAME`         | Nombre del índice de texto completo en Neo4j.                  |
+### **Archivo Frontend (`frontend/.env`)**
+Contiene la configuración específica del frontend:
 
-#### **Chat History Service** (`backend/user/chat-history-service/.env`)
-| Variable        | Descripción                                                               |
-|-----------------|---------------------------------------------------------------------------|
-| `NEO4J_DATABASE`| Nombre de la base de datos Neo4j para historial de chat (ej: `chat_history`). |
+| Variable                | Descripción                                                                 |
+|-------------------------|-----------------------------------------------------------------------------|
+| `VITE_BACKEND_URL`      | URL del servicio de chat backend (ej: `http://localhost:8002`)             |
+| `VITE_USER_API_URL`     | URL del servicio de usuarios (ej: `http://localhost:8004`)                 |
+| `VITE_FILE_SERVICE_URL` | URL del servicio de archivos (ej: `http://localhost:8001`)                 |
 
 ---
 
