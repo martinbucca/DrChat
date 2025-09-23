@@ -7,7 +7,7 @@ from app.services.graph_rag import GraphRAGPipeline
 from app.services.chat_history import ChatMessageHistory
 from app.api.api import API
 from app.api.answer_question_endpoint import AnswerQuestionEndpoint
-from app.config import (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, VECTOR_INDEX_NAME, NEO4J_URI_CHATS, NEO4J_USERNAME_CHATS, NEO4J_PASSWORD_CHATS)
+from app.config import (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, VECTOR_INDEX_NAME, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
 
 llm_instance = LLM.get_instance()
 llm = llm_instance.llm
@@ -15,7 +15,7 @@ llm = llm_instance.llm
 driver_instance = Neo4jDriver(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
 driver = driver_instance.driver
 
-driver_instance_messages = Neo4jDriver(NEO4J_URI_CHATS, NEO4J_USERNAME_CHATS, NEO4J_PASSWORD_CHATS)
+driver_instance_messages = Neo4jDriver(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
 driver_messages = driver_instance_messages.driver
 
 

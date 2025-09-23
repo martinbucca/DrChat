@@ -23,26 +23,53 @@ export default function Login() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log("Starting login/register process");
+    console.log("Mode:", mode);
+    console.log("Email:", email);
+
     if (!email.trim() || !password.trim()) return;
     if (mode === 'register' && (!name.trim() || !profession.trim())) return;
 
     try {
-      const base = (import.meta as any).env.VITE_USER_API_URL || 'http://localhost:5002';
+      const base = (import.meta as any).env.VITE_USER_SERVICE_URL || 'http://localhost:8004';
+      console.log("Environment VITE_USER_SERVICE_URL:", (import.meta as any).env.VITE_USER_SERVICE_URL);
+      console.log("Final API Base URL:", base);
+      
       if (mode === 'register') {
-        const res = await axios.post(`${base}/api/register`, {
+        const url = `${base}/api/register`;
+        console.log("Registering new user at URL:", url);
+        const payload = {
           name,
           email,
           password,
           profesion: profession,
-        });
+        };
+        console.log("Register payload:", payload);
+        
+        const res = await axios.post(url, payload);
+        console.log("Registration successful:", res.data);
         localStorage.setItem('user', JSON.stringify(res.data));
       } else {
-        const res = await axios.post(`${base}/api/login`, { email, password });
+        const url = `${base}/api/login`;
+        console.log("Logging in user at URL:", url);
+        const payload = { email, password };
+        console.log("Login payload:", { email, password: "***" });
+        
+        const res = await axios.post(url, payload);
+        console.log("Login successful:", res.data);
         localStorage.setItem('user', JSON.stringify(res.data));
       }
+      
+      console.log("Redirecting to home...");
       navigate('/', { replace: true });
     } catch (err) {
-      console.error('Auth error', err);
+      console.error('Auth error:', err);
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        url: err.config?.url
+      });
       alert('Error de autenticación');
     }
   };

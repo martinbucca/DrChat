@@ -4,7 +4,7 @@ Servicio de autenticación para registro e ingreso de usuarios.
 Expone endpoints REST vía **FastAPI** y persiste usuarios en **PostgreSQL**.  
 Integra **Firebase Admin** para enviar correos de verificación de cuenta al registrarse.
 
-- Puerto por defecto: `5002`
+- Puerto por defecto: `8004` (externo), `8000` (interno del contenedor)
 - Base path: `/api`
 - Endpoints principales:
   - `POST /api/register` → registra usuario y envía email de verificación
@@ -103,12 +103,12 @@ Notas:
 
 ```bash
 # Registro
-curl -X POST http://localhost:5002/api/register \
+curl -X POST http://localhost:8004/api/register \
   -H 'Content-Type: application/json' \
   -d '{"name":"Ana","email":"ana@test.com","password":"123456","profesion":"medicina"}'
 
 # Login
-curl -X POST http://localhost:5002/api/login \
+curl -X POST http://localhost:8004/api/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"ana@test.com","password":"123456"}'
 ```
@@ -123,5 +123,5 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
 # Opcional: export DATABASE_URL si no usás Docker para la DB
-uvicorn app.main:app --host 0.0.0.0 --port 5002 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```

@@ -70,10 +70,12 @@ Una vez que los servicios estén ejecutándose:
 
 | Servicio | URL | Descripción |
 |----------|-----|-------------|
-| **Frontend** | http://localhost:5000 | Interfaz web de DrChat |
+| **Frontend** | http://localhost:3000 | Interfaz web de DrChat |
 | **File Service** | http://localhost:8001/docs | API de gestión de archivos (Swagger) |
 | **File Service Health Check** | http://localhost:8001/ | Estado del file-service |
-| **Chat History Service** | http://localhost:5003/docs | API de historial de chat (Swagger) |
+| **Chat Service** | http://localhost:8002/docs | API de chat (Swagger) |
+| **Chat History Service** | http://localhost:8003/docs | API de historial de chat (Swagger) |
+| **User Service** | http://localhost:8004/docs | API de usuarios (Swagger) |
 | **Neo4j Browser** | http://localhost:7474 | Interfaz web de Neo4j (usuario: neo4j, contraseña: password) |
 | **MongoDB** | localhost:27017 | Base de datos (acceso directo) |
 | **Kafka** | localhost:9092 | Broker de mensajes |

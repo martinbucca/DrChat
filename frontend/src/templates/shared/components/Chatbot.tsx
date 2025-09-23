@@ -97,11 +97,16 @@ function toLocalISOString(date: Date) {
 // ---------------------------------------------
 // Backend calls
 // ---------------------------------------------
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const CHAT_SERVICE_URL = import.meta.env.VITE_CHAT_SERVICE_URL;
 const FILE_SERVICE_URL = import.meta.env.VITE_FILE_SERVICE_URL;
 
 async function chatBotAPI(question: string, sessionId?: string, createdAt?: string) {
-  if (!BACKEND_URL) {
+  console.log("Starting chat API call");
+  console.log("Environment VITE_CHAT_SERVICE_URL:", import.meta.env.VITE_CHAT_SERVICE_URL);
+  console.log("Final CHAT_SERVICE_URL:", CHAT_SERVICE_URL);
+  
+  if (!CHAT_SERVICE_URL) {
+    console.log("No CHAT_SERVICE_URL configured, using fallback demo");
     // Fallback demo payload when no backend is configured
     const start = Date.now();
     await new Promise((r) => setTimeout(r, 1000));
@@ -127,20 +132,44 @@ async function chatBotAPI(question: string, sessionId?: string, createdAt?: stri
     session_id: sessionId,
     created_at: createdAt,
   };
-  const { data } = await axios.post(BACKEND_URL, payload);
-  const endTime = Date.now();
-  return { response: data, timeTaken: endTime - startTime };
+  const url = `${CHAT_SERVICE_URL}/answer_question`;
+  console.log("Making chat request to URL:", url);
+  console.log("Chat payload:", payload);
+  
+  try {
+    const { data } = await axios.post(url, payload);
+    const endTime = Date.now();
+    console.log("Chat response successful:", data);
+    return { response: data, timeTaken: endTime - startTime };
+  } catch (err) {
+    console.error("Chat API error:", err);
+    throw err;
+  }
 }
 
 async function sendFeedback(messageId: number, like: boolean) {
-  if (!BACKEND_URL) return; // silently ignore if no backend
+  console.log("Sending feedback");
+  console.log("CHAT_SERVICE_URL:", CHAT_SERVICE_URL);
+  
+  if (!CHAT_SERVICE_URL) {
+    console.log("No CHAT_SERVICE_URL configured, skipping feedback");
+    return;
+  }
+  
+  const url = `${CHAT_SERVICE_URL}/feedback`;
+  const payload = {
+    message_id: messageId,
+    like,
+  };
+  
+  console.log("Sending feedback to URL:", url);
+  console.log("Feedback payload:", payload);
+  
   try {
-    await axios.post(`${BACKEND_URL.replace(/\/$/, '')}/feedback`, {
-      message_id: messageId,
-      like,
-    });
+    await axios.post(url, payload);
+    console.log("Feedback sent successfully");
   } catch (e) {
-    console.error('Error sending feedback', e);
+    console.error('Error sending feedback:', e);
   }
 }
 
