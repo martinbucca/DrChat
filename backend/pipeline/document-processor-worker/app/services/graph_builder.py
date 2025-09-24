@@ -45,7 +45,7 @@ WITH apoc.map.clean(map,[],["  ",""]) AS m
 MERGE (d:Document {name: m.metadata.original_filename})
 SET d.session_id = COALESCE(m.metadata.session_id, "global")
 WITH m, d
-CREATE (n:Chunk {id: m.element_id})
+MERGE (n:Chunk {id: m.element_id})
 SET
   n.type = "NarrativeText",
   n.text = m.text,
@@ -57,10 +57,10 @@ SET
   n.tokens = m.tokens,
   n.embedding = m.embedding,
   n.session_id = COALESCE(m.metadata.session_id, "global")
-CREATE (n)-[:PART_OF_DOCUMENT]->(d)
+MERGE (n)-[:PART_OF_DOCUMENT]->(d)
 WITH m, d, n
 WHERE m.metadata.type IN ['Image', 'Table']
-CREATE (i:$(m.metadata.type) {id: m.element_id})
+MERGE (i:EntityContent {id: m.element_id})
 SET i.type = m.metadata.type,
     i.figure_caption = m.metadata.figure_caption,
     i.text = m.metadata.text,
@@ -74,22 +74,40 @@ SET i.type = m.metadata.type,
     i.session_id = COALESCE(m.metadata.session_id, "global")
 MERGE (n)-[:RELATED_CONTENT]->(i)
 MERGE (i)-[:PART_OF_DOCUMENT]->(d)
+
+// --- Entidades ---
 WITH m, n
 UNWIND m.entities AS e
-MERGE (ent:Entity {text: e.text, label: e.label})
-SET ent.confidence = e.confidence,
-    ent.start = e.start,
-    ent.end = e.end,
-    ent.id = e.id
+// --- Entidades ---
+WITH m, n
+UNWIND m.entities AS e
+MERGE (ent:Entity {canonical_text: e.canonical_text, label: e.label})
+ON CREATE SET
+  ent.text = e.text,
+  ent.confidence = e.confidence,
+  ent.start = e.start,
+  ent.end = e.end,
+  ent.id = e.id
+ON MATCH SET
+  ent.confidence = CASE 
+                     WHEN coalesce(e.confidence,0) > coalesce(ent.confidence,0) 
+                     THEN e.confidence 
+                     ELSE ent.confidence 
+                   END
 MERGE (n)-[:MENTIONS]->(ent)
+
+// --- Relaciones (VERSIÓN SEGURA) ---
 WITH m, n
 WHERE size(m.relationships) > 0
 UNWIND m.relationships AS r
-MATCH (source:Entity) WHERE source.text = r.source
-MATCH (target:Entity) WHERE target.text = r.target
+// USAR OPTIONAL MATCH PARA EVITAR ERRORES SI NO EXISTEN
+OPTIONAL MATCH (source:Entity {canonical_text: r.source})
+OPTIONAL MATCH (target:Entity {canonical_text: r.target})
+WITH m, n, r, source, target
+WHERE source IS NOT NULL AND target IS NOT NULL  // SOLO SI AMBOS EXISTEN
 MERGE (source)-[rel:RELATES_TO {id: r.id}]->(target)
-SET rel.type = r.type,
-    rel.confidence = r.confidence
+ON CREATE SET rel.type = r.type, rel.confidence = r.confidence
+ON MATCH SET rel.confidence = CASE WHEN coalesce(r.confidence,0) > coalesce(rel.confidence,0) THEN r.confidence ELSE rel.confidence END
 '''
 
     NEXT_CHUNK_QUERY = '''
@@ -98,7 +116,17 @@ WHERE n.session_id = coalesce($session_id, "global") AND n.chunk_number IS NOT N
 WITH d, n
 ORDER BY toInteger(n.chunk_number)
 WITH d, collect(n) AS nodes
-CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
+CALL apoc.nodes.link(nodes, "NEXT_CHUNK", {avoidDuplicates: true})
+'''
+
+    CO_OCCURRENCE_QUERY = '''
+// Crea relaciones de co-ocurrencia entre entidades dentro del mismo chunk
+MATCH (n:Chunk)-[:MENTIONS]->(e1:Entity),
+      (n)-[:MENTIONS]->(e2:Entity)
+WHERE id(e1) < id(e2)  // evita duplicados
+MERGE (e1)-[r:CO_OCCURS_WITH {chunk_id: n.id}]->(e2)
+ON CREATE SET r.weight = 1
+ON MATCH SET r.weight = r.weight + 1
 '''
 
     _instance = None
@@ -204,15 +232,23 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
 
     def _run_query(self, tx, query, json_data):
         return tx.run(query, {"json": json_data}).consume()
-    
+
     def _run_query_next_chunk_rel(self, tx, query, filename, session_id):
         return tx.run(query, {"filename": filename, "session_id": session_id}).consume()
+
+    def _run_query_no_params(self, tx, query):
+        return tx.run(query).consume()
 
     def _load_graph(self, json_data, filename, session_id):
         with self.driver.driver.session() as session:
             summary_chunks = session.execute_write(self._run_query, self.CHUNK_QUERY, json_data)
             summary_next = session.execute_write(self._run_query_next_chunk_rel, self.NEXT_CHUNK_QUERY, filename, session_id)
-            logger.info(f"nodes created => {summary_chunks.counters.nodes_created}, rels created => {summary_chunks.counters.relationships_created + summary_next.counters.relationships_created}")
+            summary_co = session.execute_write(self._run_query_no_params, self.CO_OCCURRENCE_QUERY)
+
+            logger.info(
+                f"nodes created => {summary_chunks.counters.nodes_created}, "
+                f"rels created => {summary_chunks.counters.relationships_created + summary_next.counters.relationships_created + summary_co.counters.relationships_created}"
+            )
 
     def _extract_orig_elements(self, encoded):
         decoded = base64.b64decode(encoded)
@@ -229,17 +265,28 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
             similarity_fn="cosine",
             fail_if_exists=False,
         )
-        # Por ahora es solo busqueda semantica, no hibrida. 
-        # No se esta usando este index fulltext
-        """
-        create_fulltext_index(
-            self.driver,
-            FULLTEXT_INDEX_NAME,
-            label="Entity",
-            node_properties= ["text", "variants"],
-            fail_if_exists=False,
-        )
-        """
+
+        # Constraint para evitar duplicados de entidades
+        with self.driver.driver.session() as session:
+            try:
+                session.run("""
+                CREATE CONSTRAINT entity_id_unique IF NOT EXISTS
+                FOR (e:Entity)
+                REQUIRE e.id IS UNIQUE
+                """)
+                logger.info("Constraint entity_id_unique creada")
+            except Exception as e:
+                logger.warning(f"No se pudo crear constraint entity_id_unique: {e}")
+
+            try:
+                session.run("""
+                CREATE CONSTRAINT chunk_id_unique IF NOT EXISTS
+                FOR (c:Chunk)
+                REQUIRE c.id IS UNIQUE
+                """)
+                logger.info("Constraint chunk_id_unique creada")
+            except Exception as e:
+                logger.warning(f"No se pudo crear constraint chunk_id_unique: {e}")
 
     @classmethod
     def get_instance(cls, driver, embedder, entity_relationship_extractor=None):

@@ -1,3 +1,4 @@
+import re
 from unstructured_client import UnstructuredClient
 from unstructured_client.models import operations, shared
 from config import UNSTRUCTURED_API_KEY, UNSTRUCTURED_URL
@@ -80,8 +81,34 @@ class Chunker:
         )
         
         response = self.client.general.partition(request=request).elements
-        return response
+
+        # POST-PROCESAMIENTO: Limpiar texto repetitivo
+        cleaned_elements = []
+        for element in response:
+            if 'text' in element:
+                # Remover encabezados/pies comunes
+                element['text'] = self._clean_repetitive_text(element['text'])
+            cleaned_elements.append(element)
+
+        return cleaned_elements
     
+    def _clean_repetitive_text(self, text: str) -> str:
+        """Remover texto repetitivo como encabezados/pies de página"""
+        patterns_to_remove = [
+            r'Review\s+Regeneration\s+of\s+the\s+heart',
+            r'EMBO\s+Molecular\s+Medicine',
+            r'©\s+\d{4}\s+.*',
+            r'http[s]?://\S+',  # URLs
+        ]
+
+        for pattern in patterns_to_remove:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+
+        # Collapsar espacios múltiples
+        text = re.sub(r'\s+', ' ', text).strip()
+
+        return text
+
     @classmethod
     def get_instance(cls,
         strategy: str = "hi_res",
