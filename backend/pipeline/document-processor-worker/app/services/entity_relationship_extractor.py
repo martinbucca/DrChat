@@ -38,10 +38,7 @@ class EntityRelationshipExtractor:
             logger.info("Biomedical NER model loaded successfully")
         except Exception as e:
             logger.error(f"Error loading biomedical NER model: {e}")
-            # Fallback to regex patterns if model fails
-            self.ner_pipeline = None
-            self.medical_patterns = self._load_medical_patterns()
-            logger.info("Falling back to regex-based NER")
+            raise RuntimeError(f"Failed to initialize biomedical NER model: {e}")
 
     def _canonicalize(self, text: str) -> str:
         """Normalize text: remove accents, lowercase, remove punctuation, collapse spaces."""
@@ -57,39 +54,12 @@ class EntityRelationshipExtractor:
         # Collapse whitespace
         text = re.sub(r"\s+", " ", text).strip()
         return text
-
-    def _load_medical_patterns(self) -> Dict[str, List[str]]:
-        """Load medical patterns for fallback regex-based NER"""
-        return {
-            'diseases': [
-                r'\b(diabetes|hypertension|cancer|tumor|carcinoma|infection|inflammation|syndrome|disease|disorder|condition)\b',
-                r'\b(COVID-19|HIV|AIDS|tuberculosis|pneumonia|bronchitis|asthma|COPD)\b',
-                r'\b(heart failure|stroke|myocardial infarction|coronary artery disease)\b'
-            ],
-            'drugs': [
-                r'\b(aspirin|ibuprofen|acetaminophen|morphine|insulin|metformin|lisinopril)\b',
-                r'\b(antibiotic|antiviral|antifungal|chemotherapy|immunotherapy)\b',
-                r'\b(medication|drug|treatment|therapy|prescription)\b'
-            ],
-            'anatomy': [
-                r'\b(heart|lung|brain|liver|kidney|stomach|intestine|muscle|bone|blood)\b',
-                r'\b(cell|tissue|organ|vessel|artery|vein|nerve|gland)\b'
-            ],
-            'proteins': [
-                r'\b(protein|enzyme|hormone|antibody|antigen|receptor|gene)\b',
-                r'\b(insulin|hemoglobin|albumin|collagen|keratin)\b'
-            ]
-        }
     
     def extract_entities_and_relationships(self, text: str) -> Dict:
-        """Extract medical entities and relationships from text"""
+        """Extract medical entities and relationships from text using transformers model"""
         try:
-            if self.ner_pipeline:
-                logger.info("Extracting entities using biomedical transformer model")
-                return self._extract_with_transformers(text)
-            else:
-                logger.info("Extracting entities using regex patterns")
-                return self._extract_with_regex(text)
+            logger.info("Extracting entities using biomedical transformer model")
+            return self._extract_with_transformers(text)
         except Exception as e:
             logger.error(f"Error extracting entities: {e}")
             return {"entities": [], "relationships": []}
@@ -133,34 +103,6 @@ class EntityRelationshipExtractor:
                 continue
         
         logger.info(f"Extracted {len(entities)} entities and {len(relationships)} relationships using transformers")
-        return {"entities": entities, "relationships": relationships}
-    
-    def _extract_with_regex(self, text: str) -> Dict:
-        """Fallback extraction using regex patterns"""
-        entities = []
-        relationships = []
-        
-        for entity_type, patterns in self.medical_patterns.items():
-            for pattern in patterns:
-                matches = re.finditer(pattern, text, re.IGNORECASE)
-                for match in matches:
-                    raw_text = match.group()
-                    canonical = self._canonicalize(raw_text)
-                    entity_data = {
-                        'id': str(uuid.uuid4()),
-                        'text': raw_text,
-                        'canonical_text': canonical,
-                        'label': entity_type,
-                        'start': int(match.start()),
-                        'end': int(match.end()),
-                        'confidence': 0.8
-                    }
-                    entities.append(entity_data)
-        
-        # Extract simple relationships for regex mode
-        relationships = self._extract_simple_relationships(entities, text)
-        
-        logger.info(f"Extracted {len(entities)} entities and {len(relationships)} relationships using regex")
         return {"entities": entities, "relationships": relationships}
     
     def _extract_relationships(self, entities: List[Dict], text: str) -> List[Dict]:
@@ -218,28 +160,6 @@ class EntityRelationshipExtractor:
                             }
                             relationships.append(relationship)
                             break
-        
-        return relationships
-    
-    def _extract_simple_relationships(self, entities: List[Dict], text: str) -> List[Dict]:
-        """Extract simple relationships for regex mode"""
-        relationships = []
-        
-        # Simple co-occurrence based relationships
-        for i, entity1 in enumerate(entities):
-            for j, entity2 in enumerate(entities[i+1:], i+1):
-                distance = abs(entity1['start'] - entity2['start'])
-                if distance < 50:  # Entities are very close
-                    relationship = {
-                        'id': str(uuid.uuid4()),
-                        'source': entity1.get('canonical_text', entity1.get('text')),
-                        'source_surface': entity1.get('text'),
-                        'target': entity2.get('canonical_text', entity2.get('text')),
-                        'target_surface': entity2.get('text'),
-                        'type': "RELATED_TO",
-                        'confidence': 0.7
-                    }
-                    relationships.append(relationship)
         
         return relationships
     

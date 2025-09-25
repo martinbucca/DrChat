@@ -119,16 +119,6 @@ WITH d, collect(n) AS nodes
 CALL apoc.nodes.link(nodes, "NEXT_CHUNK", {avoidDuplicates: true})
 '''
 
-    CO_OCCURRENCE_QUERY = '''
-// Crea relaciones de co-ocurrencia entre entidades dentro del mismo chunk
-MATCH (n:Chunk)-[:MENTIONS]->(e1:Entity),
-      (n)-[:MENTIONS]->(e2:Entity)
-WHERE id(e1) < id(e2)  // evita duplicados
-MERGE (e1)-[r:CO_OCCURS_WITH {chunk_id: n.id}]->(e2)
-ON CREATE SET r.weight = 1
-ON MATCH SET r.weight = r.weight + 1
-'''
-
     _instance = None
 
     def __init__(self, driver, embedder, entity_relationship_extractor=None):
@@ -236,18 +226,14 @@ ON MATCH SET r.weight = r.weight + 1
     def _run_query_next_chunk_rel(self, tx, query, filename, session_id):
         return tx.run(query, {"filename": filename, "session_id": session_id}).consume()
 
-    def _run_query_no_params(self, tx, query):
-        return tx.run(query).consume()
-
     def _load_graph(self, json_data, filename, session_id):
         with self.driver.driver.session() as session:
             summary_chunks = session.execute_write(self._run_query, self.CHUNK_QUERY, json_data)
             summary_next = session.execute_write(self._run_query_next_chunk_rel, self.NEXT_CHUNK_QUERY, filename, session_id)
-            summary_co = session.execute_write(self._run_query_no_params, self.CO_OCCURRENCE_QUERY)
 
             logger.info(
                 f"nodes created => {summary_chunks.counters.nodes_created}, "
-                f"rels created => {summary_chunks.counters.relationships_created + summary_next.counters.relationships_created + summary_co.counters.relationships_created}"
+                f"rels created => {summary_chunks.counters.relationships_created + summary_next.counters.relationships_created}"
             )
 
     def _extract_orig_elements(self, encoded):
