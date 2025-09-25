@@ -60,18 +60,20 @@ SET
 MERGE (n)-[:PART_OF_DOCUMENT]->(d)
 WITH m, d, n
 WHERE m.metadata.type IN ['Image', 'Table']
-MERGE (i:EntityContent {id: m.element_id})
-SET i.type = m.metadata.type,
-    i.figure_caption = m.metadata.figure_caption,
-    i.text = m.metadata.text,
-    i.filename = m.metadata.original_filename,
-    i.filetype = m.metadata.filetype,
-    i.languages = m.metadata.languages,
-    i.page_number = m.metadata.page_number,
-    i.image_base64 = m.metadata.image_base64,
-    i.image_mime_type = m.metadata.image_mime_type,
-    i.text_as_html = m.metadata.text_as_html,
-    i.session_id = COALESCE(m.metadata.session_id, "global")
+CALL apoc.merge.node([m.metadata.type], {id: m.element_id}, 
+  {type: m.metadata.type,
+   figure_caption: m.metadata.figure_caption,
+   text: m.metadata.text,
+   filename: m.metadata.original_filename,
+   filetype: m.metadata.filetype,
+   languages: m.metadata.languages,
+   page_number: m.metadata.page_number,
+   image_base64: m.metadata.image_base64,
+   image_mime_type: m.metadata.image_mime_type,
+   text_as_html: m.metadata.text_as_html,
+   session_id: COALESCE(m.metadata.session_id, "global")}, 
+  {}) YIELD node as i
+WITH m, d, n, i
 MERGE (n)-[:RELATED_CONTENT]->(i)
 MERGE (i)-[:PART_OF_DOCUMENT]->(d)
 
