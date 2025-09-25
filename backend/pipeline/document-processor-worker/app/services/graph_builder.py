@@ -78,36 +78,36 @@ MERGE (i)-[:PART_OF_DOCUMENT]->(d)
 // --- Entidades ---
 WITH m, n
 UNWIND m.entities AS e
-// --- Entidades ---
-WITH m, n
-UNWIND m.entities AS e
-MERGE (ent:Entity {canonical_text: e.canonical_text, label: e.label})
-ON CREATE SET
-  ent.text = e.text,
-  ent.confidence = e.confidence,
-  ent.start = e.start,
-  ent.end = e.end,
-  ent.id = e.id
-ON MATCH SET
-  ent.confidence = CASE 
-                     WHEN coalesce(e.confidence,0) > coalesce(ent.confidence,0) 
-                     THEN e.confidence 
-                     ELSE ent.confidence 
-                   END
+CALL apoc.merge.node([e.label], {canonical_text: e.canonical_text}, 
+  {text: e.text,
+   confidence: e.confidence,
+   start: e.start,
+   end: e.end,
+   id: e.id,
+   label: e.label}, 
+  {confidence: CASE 
+                 WHEN coalesce(e.confidence,0) > coalesce({confidence: e.confidence}.confidence,0) 
+                 THEN e.confidence 
+                 ELSE {confidence: e.confidence}.confidence 
+               END}) YIELD node as ent
+WITH m, n, ent
 MERGE (n)-[:MENTIONS]->(ent)
 
-// --- Relaciones (VERSIÓN SEGURA) ---
+// --- Relaciones ---
 WITH m, n
 WHERE size(m.relationships) > 0
 UNWIND m.relationships AS r
 // USAR OPTIONAL MATCH PARA EVITAR ERRORES SI NO EXISTEN
-OPTIONAL MATCH (source:Entity {canonical_text: r.source})
-OPTIONAL MATCH (target:Entity {canonical_text: r.target})
+OPTIONAL MATCH (source {canonical_text: r.source})
+OPTIONAL MATCH (target {canonical_text: r.target})
 WITH m, n, r, source, target
 WHERE source IS NOT NULL AND target IS NOT NULL  // SOLO SI AMBOS EXISTEN
-MERGE (source)-[rel:RELATES_TO {id: r.id}]->(target)
-ON CREATE SET rel.type = r.type, rel.confidence = r.confidence
-ON MATCH SET rel.confidence = CASE WHEN coalesce(r.confidence,0) > coalesce(rel.confidence,0) THEN r.confidence ELSE rel.confidence END
+CALL apoc.merge.relationship(source, r.type, {id: r.id}, 
+  {confidence: r.confidence}, 
+  target, 
+  {confidence: CASE WHEN coalesce(r.confidence,0) > coalesce({confidence: r.confidence}.confidence,0) THEN r.confidence ELSE {confidence: r.confidence}.confidence END}) 
+YIELD rel
+RETURN count(rel) as relationships_created
 '''
 
     NEXT_CHUNK_QUERY = '''

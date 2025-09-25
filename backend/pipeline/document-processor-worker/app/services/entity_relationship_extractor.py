@@ -146,7 +146,12 @@ class EntityRelationshipExtractor:
                             chunk_entities.append(entity_data)
                 
                 # Extract relationships between nearby entities
-                relationships.extend(self._extract_relationships(chunk_entities, chunk))
+                pattern_relationships = self._extract_relationships(chunk_entities, chunk)
+                relationships.extend(pattern_relationships)
+                
+                # Extract type-based relationships
+                type_relationships = self._extract_type_based_relationships(chunk_entities)
+                relationships.extend(type_relationships)
                 
             except Exception as e:
                 logger.warning(f"Error processing chunk: {e}")
@@ -154,6 +159,13 @@ class EntityRelationshipExtractor:
         
         # Filtrar entidades duplicadas o muy similares
         entities = self._deduplicate_entities(entities)
+        
+        # Extract inter-chunk relationships using all entities
+        inter_chunk_relationships = self._extract_inter_chunk_relationships(entities, text)
+        relationships.extend(inter_chunk_relationships)
+        
+        # Deduplicate relationships
+        relationships = self._deduplicate_relationships(relationships)
         
         logger.info(f"Extracted {len(entities)} entities and {len(relationships)} relationships using transformers")
         return {"entities": entities, "relationships": relationships}
@@ -171,12 +183,36 @@ class EntityRelationshipExtractor:
         if len(high_confidence_entities) < 2:
             return relationships
 
-        # Relationship patterns
+        # Relationship patterns - Expandidos para medicina
         relation_patterns = {
-            'TREATS': [r'treat(s|ed|ing|ment)', r'cure(s|d)', r'therap(y|ies)', r'medication for'],
-            'CAUSES': [r'cause(s|d)', r'lead(s|ing) to', r'result(s|ed) in', r'trigger(s|ed)'],
-            'ASSOCIATED_WITH': [r'associated with', r'related to', r'linked to', r'connected to'],
-            'PART_OF': [r'part of', r'component of', r'located in', r'found in']
+            'TREATS': [
+                r'treat(s|ed|ing|ment)', r'cure(s|d)', r'therap(y|ies)', r'medication for',
+                r'administered for', r'prescribed for', r'used to treat', r'effective against',
+                r'therapeutic for', r'remedy for', r'applied to', r'indicated for'
+            ],
+            'CAUSES': [
+                r'cause(s|d)', r'lead(s|ing) to', r'result(s|ed) in', r'trigger(s|ed)',
+                r'induce(s|d)', r'precipitate(s|d)', r'provoke(s|d)', r'bring(s) about',
+                r'responsible for', r'due to', r'secondary to', r'attributed to'
+            ],
+            'PREVENTS': [
+                r'prevent(s|ed|ing|ion)', r'avoid(s|ed|ing)', r'protect(s|ed|ing) against',
+                r'reduce(s|d) risk', r'lower(s|ed) risk', r'prophylaxis', r'inhibit(s|ed)',
+                r'block(s|ed)', r'suppress(es|ed)'
+            ],
+            'IMPROVES': [
+                r'improve(s|d)', r'enhance(s|d)', r'increase(s|d)', r'boost(s|ed)',
+                r'restore(s|d)', r'repair(s|ed)', r'regenerate(s|d)', r'strengthen(s|ed)',
+                r'optimize(s|d)', r'support(s|ed)'
+            ],
+            'LOCATED_IN': [
+                r'located in', r'found in', r'present in', r'within the', r'inside the',
+                r'part of', r'component of', r'region of', r'situated in', r'contained in'
+            ],
+            'ASSOCIATED_WITH': [
+                r'associated with', r'related to', r'linked to', r'connected to',
+                r'correlated with', r'accompanied by', r'co-occurs with', r'seen with'
+            ]
         }
 
         for i, entity1 in enumerate(high_confidence_entities):
@@ -229,6 +265,213 @@ class EntityRelationshipExtractor:
         
         return relationships
     
+    def _extract_type_based_relationships(self, entities: List[Dict]) -> List[Dict]:
+        """Extract relationships based on entity types using medical logic"""
+        relationships = []
+        
+        if len(entities) < 2:
+            return relationships
+            
+        # Solo considerar entidades con alta confianza
+        high_confidence_entities = [e for e in entities if e.get('confidence', 0) > 0.85]
+        
+        if len(high_confidence_entities) < 2:
+            return relationships
+            
+        # Reglas médicas basadas en tipos de entidad de BioBERT
+        type_rules = {
+            ('Therapeutic_procedure', 'Disease_disorder'): 'TREATS',
+            ('Disease_disorder', 'Sign_symptom'): 'MANIFESTS_AS',
+            ('Diagnostic_procedure', 'Disease_disorder'): 'DIAGNOSES',
+            ('Lab_value', 'Disease_disorder'): 'INDICATES',
+            ('Biological_structure', 'Disease_disorder'): 'AFFECTED_BY',
+            ('Therapeutic_procedure', 'Sign_symptom'): 'ALLEVIATES',
+            ('Diagnostic_procedure', 'Biological_structure'): 'EXAMINES',
+            ('Lab_value', 'Therapeutic_procedure'): 'MONITORS',
+            ('Detailed_description', 'Diagnostic_procedure'): 'DESCRIBES',
+            ('Clinical_event', 'Disease_disorder'): 'INVOLVES'
+        }
+        
+        for i, entity1 in enumerate(high_confidence_entities):
+            for j, entity2 in enumerate(high_confidence_entities[i+1:], i+1):
+                # Evitar auto-relaciones
+                if (entity1.get('canonical_text') == entity2.get('canonical_text') or
+                    entity1.get('text') == entity2.get('text')):
+                    continue
+                    
+                # Verificar distancia (más permisiva para relaciones tipo-based)
+                distance = abs(entity1['start'] - entity2['start'])
+                if distance > 200:  # Un poco más permisiva
+                    continue
+                    
+                # Verificar validez de entidades
+                if (not entity1.get('canonical_text') or 
+                    not entity2.get('canonical_text') or
+                    len(entity1.get('canonical_text', '')) < 3 or
+                    len(entity2.get('canonical_text', '')) < 3):
+                    continue
+                
+                # Obtener tipos de entidad
+                type1 = entity1.get('label', '')
+                type2 = entity2.get('label', '')
+                
+                # Buscar regla que coincida (en ambas direcciones)
+                relation_type = None
+                source_entity = entity1
+                target_entity = entity2
+                
+                if (type1, type2) in type_rules:
+                    relation_type = type_rules[(type1, type2)]
+                elif (type2, type1) in type_rules:
+                    relation_type = type_rules[(type2, type1)]
+                    source_entity = entity2
+                    target_entity = entity1
+                
+                if relation_type:
+                    # Calcular confianza basada en distancia
+                    base_confidence = 0.75
+                    distance_factor = max(0.5, 1.0 - (distance / 300.0))
+                    final_confidence = min(0.9, base_confidence * distance_factor)
+                    
+                    relationship = {
+                        'id': str(uuid.uuid4()),
+                        'source': source_entity.get('canonical_text'),
+                        'source_surface': source_entity.get('text'),
+                        'target': target_entity.get('canonical_text'),
+                        'target_surface': target_entity.get('text'),
+                        'type': relation_type,
+                        'confidence': final_confidence
+                    }
+                    relationships.append(relationship)
+        
+        return relationships
+    
+    def _extract_inter_chunk_relationships(self, entities: List[Dict], full_text: str) -> List[Dict]:
+        """Extract relationships between entities across different chunks using medical logic"""
+        relationships = []
+        
+        if len(entities) < 2:
+            return relationships
+            
+        # Solo considerar entidades con alta confianza
+        high_confidence_entities = [e for e in entities if e.get('confidence', 0) > 0.85]
+        
+        if len(high_confidence_entities) < 2:
+            return relationships
+            
+        # Reglas médicas específicas con mayor distancia permitida
+        type_rules = {
+            ('Therapeutic_procedure', 'Disease_disorder'): 'TREATS',
+            ('Disease_disorder', 'Sign_symptom'): 'MANIFESTS_AS', 
+            ('Diagnostic_procedure', 'Disease_disorder'): 'DIAGNOSES',
+            ('Lab_value', 'Disease_disorder'): 'INDICATES',
+            ('Biological_structure', 'Disease_disorder'): 'AFFECTED_BY',
+            ('Therapeutic_procedure', 'Sign_symptom'): 'ALLEVIATES',
+            ('Diagnostic_procedure', 'Biological_structure'): 'EXAMINES',
+            ('Lab_value', 'Therapeutic_procedure'): 'MONITORS',
+            ('Disease_disorder', 'Therapeutic_procedure'): 'TREATED_BY',  # Bidireccional
+            ('Sign_symptom', 'Disease_disorder'): 'SYMPTOM_OF',  # Bidireccional
+        }
+        
+        # Patrones contextuales para validar relaciones a distancia
+        contextual_patterns = {
+            'TREATS': [r'treatment', r'therapy', r'therapeutic', r'cure', r'heal', r'remedy'],
+            'CAUSES': [r'causes?', r'leads? to', r'results? in', r'triggers?'],
+            'PREVENTS': [r'prevent', r'prophylaxis', r'protection', r'avoid'],
+        }
+        
+        for i, entity1 in enumerate(high_confidence_entities):
+            for j, entity2 in enumerate(high_confidence_entities[i+1:], i+1):
+                # Evitar auto-relaciones
+                if (entity1.get('canonical_text') == entity2.get('canonical_text') or
+                    entity1.get('text') == entity2.get('text')):
+                    continue
+                    
+                # Verificar validez de entidades
+                if (not entity1.get('canonical_text') or 
+                    not entity2.get('canonical_text') or
+                    len(entity1.get('canonical_text', '')) < 3 or
+                    len(entity2.get('canonical_text', '')) < 3):
+                    continue
+                
+                # Calcular distancia
+                distance = abs(entity1['start'] - entity2['start'])
+                
+                # Permitir distancias mayores para relaciones importantes
+                max_distance = 800  # Aumentado significativamente
+                
+                if distance > max_distance:
+                    continue
+                
+                # Obtener tipos de entidad
+                type1 = entity1.get('label', '')
+                type2 = entity2.get('label', '')
+                
+                # Buscar regla que coincida
+                relation_type = None
+                source_entity = entity1
+                target_entity = entity2
+                
+                if (type1, type2) in type_rules:
+                    relation_type = type_rules[(type1, type2)]
+                elif (type2, type1) in type_rules:
+                    relation_type = type_rules[(type2, type1)]
+                    source_entity = entity2
+                    target_entity = entity1
+                
+                if relation_type:
+                    # Validar con contexto si las entidades están muy separadas
+                    should_create_relation = True
+                    
+                    if distance > 300:  # Para distancias grandes, validar contexto
+                        start_pos = min(entity1['start'], entity2['start'])
+                        end_pos = max(entity1['end'], entity2['end'])
+                        context = full_text[start_pos:end_pos].lower()
+                        
+                        # Buscar evidencia contextual
+                        has_context = False
+                        if relation_type in contextual_patterns:
+                            for pattern in contextual_patterns[relation_type]:
+                                if re.search(pattern, context):
+                                    has_context = True
+                                    break
+                        else:
+                            has_context = True  # Para otros tipos, aceptar por defecto
+                            
+                        should_create_relation = has_context
+                    
+                    if should_create_relation:
+                        # Calcular confianza dinámica
+                        base_confidence = 0.8
+                        distance_penalty = min(0.3, distance / 2000.0)
+                        final_confidence = max(0.5, base_confidence - distance_penalty)
+                        
+                        # Bonus por contexto médico
+                        context_start = max(0, min(entity1['start'], entity2['start']) - 50)
+                        context_end = min(len(full_text), max(entity1['end'], entity2['end']) + 50)
+                        context_window = full_text[context_start:context_end].lower()
+                        
+                        medical_terms = ['treatment', 'therapy', 'disease', 'disorder', 'symptom', 'diagnosis', 'patient']
+                        medical_context = sum(1 for term in medical_terms if term in context_window)
+                        context_bonus = min(0.1, medical_context * 0.02)
+                        
+                        final_confidence = min(0.95, final_confidence + context_bonus)
+                        
+                        relationship = {
+                            'id': str(uuid.uuid4()),
+                            'source': source_entity.get('canonical_text'),
+                            'source_surface': source_entity.get('text'),
+                            'target': target_entity.get('canonical_text'),
+                            'target_surface': target_entity.get('text'),
+                            'type': relation_type,
+                            'confidence': final_confidence,
+                            'distance': distance  # Para debugging
+                        }
+                        relationships.append(relationship)
+        
+        logger.info(f"Created {len(relationships)} inter-chunk relationships")
+        return relationships
+    
     def _deduplicate_entities(self, entities: List[Dict]) -> List[Dict]:
         """Remove duplicate or very similar entities, keeping the one with highest confidence"""
         if not entities:
@@ -265,6 +508,36 @@ class EntityRelationshipExtractor:
                 deduplicated.append(entity)
         
         logger.info(f"Deduplicated entities: {len(entities)} -> {len(deduplicated)}")
+        return deduplicated
+    
+    def _deduplicate_relationships(self, relationships: List[Dict]) -> List[Dict]:
+        """Remove duplicate relationships, keeping the one with highest confidence"""
+        if not relationships:
+            return relationships
+        
+        deduplicated = []
+        seen_relationships = set()
+        
+        # Sort by confidence descending to keep best relationships first
+        sorted_relationships = sorted(relationships, key=lambda x: x.get('confidence', 0), reverse=True)
+        
+        for relationship in sorted_relationships:
+            source = relationship.get('source', '').strip()
+            target = relationship.get('target', '').strip()
+            rel_type = relationship.get('type', '').strip()
+            
+            if not source or not target or not rel_type:
+                continue
+            
+            # Create relationship signature (bidirectional check)
+            sig1 = (source, target, rel_type)
+            sig2 = (target, source, rel_type)  # Check reverse too
+            
+            if sig1 not in seen_relationships and sig2 not in seen_relationships:
+                seen_relationships.add(sig1)
+                deduplicated.append(relationship)
+        
+        logger.info(f"Deduplicated relationships: {len(relationships)} -> {len(deduplicated)}")
         return deduplicated
     
     @classmethod

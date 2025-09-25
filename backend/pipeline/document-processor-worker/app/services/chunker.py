@@ -37,7 +37,7 @@ class Chunker:
         element_exclude: Optional[list] = None,
         extract_image_block_types: Optional[list] = None,
         chunking_strategy: str = "by_title",
-        max_characters: int = 1500,
+        max_characters: int = 1200,
         split_pdf_page: bool = True,
         split_pdf_allow_failed: bool = True,
         split_pdf_concurrency_level: int = 15,
@@ -48,6 +48,8 @@ class Chunker:
         self.extract_image_block_types = extract_image_block_types or ['Image', 'Table']
         self.chunking_strategy = chunking_strategy
         self.max_characters = max_characters
+        self.new_after_n_chars = max_characters
+        self.combine_text_under_n_chars = 50
         self.split_pdf_page = split_pdf_page
         self.split_pdf_allow_failed = split_pdf_allow_failed
         self.split_pdf_concurrency_level = split_pdf_concurrency_level
@@ -74,6 +76,8 @@ class Chunker:
                 extract_image_block_types=self.extract_image_block_types,
                 chunking_strategy=self.chunking_strategy,
                 max_characters=self.max_characters,
+                new_after_n_chars=self.new_after_n_chars,
+                combine_text_under_n_chars=self.combine_text_under_n_chars,
                 split_pdf_page=self.split_pdf_page,
                 split_pdf_allow_failed=self.split_pdf_allow_failed,
                 split_pdf_concurrency_level=self.split_pdf_concurrency_level
@@ -116,7 +120,7 @@ class Chunker:
         element_exclude: Optional[list] = None,
         extract_image_block_types: Optional[list] = None,
         chunking_strategy: str = "by_title",
-        max_characters: int = 1500,
+        max_characters: int = 1200,
         split_pdf_page: bool = True,
         split_pdf_allow_failed: bool = True,
         split_pdf_concurrency_level: int = 15,
