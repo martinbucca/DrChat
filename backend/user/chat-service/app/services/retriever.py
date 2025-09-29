@@ -30,8 +30,8 @@ class Retriever:
     // get the entities
     MATCH (node)-[:MENTIONS]-(e)
     WITH node, score, d, collect({
-        name: e.name,
-        id: e.id,
+        text: e.text,
+        label: e.label,
         elementId: elementId(e)
     }) as entities
     RETURN
@@ -54,6 +54,10 @@ class Retriever:
             neo4j_database='neo4j',
         )
 
+        self._retriever._node_label = "Chunk"
+        self._retriever._node_embedding_property = "embedding"
+        self._embedding_dimension = 3072
+
     # TODO: Implement a better formatter that structures the results in a more useful way.
     # def formatter(self, results):
     @staticmethod
@@ -67,7 +71,7 @@ class Retriever:
 
         # Format entities as "name (id)"
         entities_str = ", ".join(
-            f"{ent.get('name', '')} ({ent.get('id', '')})" for ent in entities
+            f"{ent.get('text', '')} ({ent.get('label', '')})" for ent in entities
         )
 
         # Prepare content string, clear and ready for LLM

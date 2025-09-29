@@ -84,8 +84,14 @@ Answer:
         self.history.add_message(LLMMessage(role="user", content=query_text), session_id, created_at)
 
         retriever_config = retriever_config or {}
+        filters = {
+            "session_id": {
+                "$eq": session_id
+            }
+        }
         retriever_result: RetrieverResult = self.retriever.search(
             query_text=query_text,
+            filters=filters,
             **retriever_config
         )
         if len(retriever_result.items) == 0:
@@ -113,7 +119,7 @@ Answer:
             for msg in messages:
                 formatted_history += f"{msg['role']}: {msg['content']}\n"
             if formatted_history == "":
-                formatted_history = "Sin mensajes previos."
+                formatted_history = "No previous messages."
 
         prompt = self.prompt_template.format(
             query_text=query_text,
