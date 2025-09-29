@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_CHAT_SERVICE_URL: string;
   readonly VITE_USER_SERVICE_URL: string;
   readonly VITE_FILE_SERVICE_URL: string;
+  readonly VITE_CHAT_HISTORY_SERVICE_URL?: string;
 }
 
 interface ImportMeta {

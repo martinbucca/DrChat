@@ -6,6 +6,11 @@ import Header from './Header';
 import DrChatLogo from '../assets/dr_chat_logo.png';
 import axios from 'axios';
 
+type FeedbackMessage = {
+  type: 'success' | 'error';
+  message: string;
+};
+
 export default function Login() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -14,11 +19,17 @@ export default function Login() {
   const [name, setName] = useState('');          // solo registro
   const [password, setPassword] = useState('');  // requerido en ambos
   const [profession, setProfession] = useState(''); // solo registro
+  const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const user = localStorage.getItem('user');
     if (user) navigate('/', { replace: true });
   }, [navigate]);
+
+  useEffect(() => {
+    setFeedback(null);
+  }, [mode]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +40,9 @@ export default function Login() {
 
     if (!email.trim() || !password.trim()) return;
     if (mode === 'register' && (!name.trim() || !profession.trim())) return;
+
+    setFeedback(null);
+    setIsSubmitting(true);
 
     try {
       const base = (import.meta as any).env.VITE_USER_SERVICE_URL || 'http://localhost:8004';
@@ -49,17 +63,22 @@ export default function Login() {
         const res = await axios.post(url, payload);
         console.log("Registration successful:", res.data);
         localStorage.setItem('user', JSON.stringify(res.data));
-      } else {
-        const url = `${base}/api/login`;
-        console.log("Logging in user at URL:", url);
-        const payload = { email, password };
-        console.log("Login payload:", { email, password: "***" });
-        
-        const res = await axios.post(url, payload);
-        console.log("Login successful:", res.data);
-        localStorage.setItem('user', JSON.stringify(res.data));
+        setFeedback({ type: 'success', message: 'Usuario registrado' });
+        setTimeout(() => {
+          navigate('/', { replace: true });
+        }, 1000);
+        return;
       }
+
+      const url = `${base}/api/login`;
+      console.log("Logging in user at URL:", url);
+      const payload = { email, password };
+      console.log("Login payload:", { email, password: "***" });
       
+      const res = await axios.post(url, payload);
+      console.log("Login successful:", res.data);
+      localStorage.setItem('user', JSON.stringify(res.data));
+
       console.log("Redirecting to home...");
       navigate('/', { replace: true });
     } catch (err) {
@@ -70,7 +89,29 @@ export default function Login() {
         status: err.response?.status,
         url: err.config?.url
       });
-      alert('Error de autenticación');
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        const detail = err.response?.data as { detail?: string } | undefined;
+
+        if (mode === 'register' && status === 400) {
+          setFeedback({ type: 'error', message: 'El correo ya se encuentra registrado.' });
+          return;
+        }
+
+        if (mode === 'login' && status === 401) {
+          setFeedback({ type: 'error', message: 'Contraseña incorrecta.' });
+          return;
+        }
+
+        if (typeof detail?.detail === 'string' && detail.detail.trim().length > 0) {
+          setFeedback({ type: 'error', message: detail.detail });
+          return;
+        }
+      }
+
+      setFeedback({ type: 'error', message: 'No pudimos completar la autenticación. Intenta nuevamente.' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -86,8 +127,7 @@ export default function Login() {
                 <div className="rounded-2xl bg-white/70 dark:bg-white/10 backdrop-blur p-6 shadow-lg">
                   <img src={DrChatLogo} alt="DrChat" className="h-20 w-20 object-contain" />
                 </div>
-                <h2 className="mt-8 text-3xl font-semibold">Aca algo 1 y con otro logo mas lindo creo</h2>
-                <p className="mt-2 max-w-sm opacity-80">Aca algo 2</p>
+                <h2 className="mt-8 text-3xl font-semibold">DrChat: de documentos a respuestas</h2>
               </div>
             </div>
 
@@ -109,6 +149,18 @@ export default function Login() {
 
                 {/* Formulario */}
                 <form onSubmit={onSubmit} className="mt-8 space-y-4">
+                  {feedback && (
+                    <div
+                      className={`flex items-center gap-3 rounded-2xl px-4 py-3 shadow-md border ${
+                        feedback.type === 'success'
+                          ? 'n-bg-palette-primary-bg-weak border-[rgb(var(--theme-palette-primary-border))] text-neutral-900'
+                          : 'n-bg-palette-danger-bg-weak border-[rgb(var(--theme-palette-danger-border))] text-neutral-900'
+                      }`}
+                    >
+                      <span className="font-medium">{feedback.message}</span>
+                    </div>
+                  )}
+
                   {mode === 'register' && (
                     <>
                       <div>
@@ -116,7 +168,10 @@ export default function Login() {
                         <input
                           type="text"
                           value={name}
-                          onChange={(e) => setName(e.target.value)}
+                          onChange={(e) => {
+                            setName(e.target.value);
+                            setFeedback(null);
+                          }}
                           placeholder="Tu nombre"
                           required
                           className="block w-full rounded-md border border-neutral-500/40 bg-transparent px-4 py-3 text-white placeholder-neutral-400 outline-none focus:ring-2 focus:ring-cyan-400"
@@ -127,7 +182,10 @@ export default function Login() {
                         <label className="mb-1 block text-sm text-neutral-300">Profesión</label>
                         <select
                           value={profession}
-                          onChange={(e) => setProfession(e.target.value)}
+                          onChange={(e) => {
+                            setProfession(e.target.value);
+                            setFeedback(null);
+                          }}
                           required
                           className="block w-full rounded-md border border-neutral-500/40 bg-transparent px-4 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-400"
                         >
@@ -149,7 +207,10 @@ export default function Login() {
                     <input
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setFeedback(null);
+                      }}
                       placeholder="you@email.com"
                       required
                       className="block w-full rounded-md border border-neutral-500/40 bg-transparent px-4 py-3 text-white placeholder-neutral-400 outline-none focus:ring-2 focus:ring-cyan-400"
@@ -161,14 +222,21 @@ export default function Login() {
                     <input
                       type="password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setFeedback(null);
+                      }}
                       placeholder="••••••••"
                       required
                       className="block w-full rounded-md border border-neutral-500/40 bg-transparent px-4 py-3 text-white placeholder-neutral-400 outline-none focus:ring-2 focus:ring-cyan-400"
                     />
                   </div>
 
-                  <Button type="submit" className="w-full !bg-cyan-400 !text-black hover:!bg-cyan-300">
+                  <Button
+                    type="submit"
+                    className="w-full !bg-cyan-400 !text-black hover:!bg-cyan-300"
+                    isDisabled={isSubmitting}
+                  >
                     {mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
                   </Button>
                 </form>
@@ -180,6 +248,3 @@ export default function Login() {
     </>
   );
 }
-
-
-

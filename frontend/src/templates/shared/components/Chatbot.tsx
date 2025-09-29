@@ -1,5 +1,4 @@
-/* eslint-disable no-confusing-arrow */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -34,6 +33,7 @@ import {
   ChevronDownIconOutline,
   ChevronUpIconOutline,
   HandThumbUpIconOutline,
+  PaperAirplaneIconOutline,
 } from '@neo4j-ndl/react/icons';
 
 import { PiGraphBold } from 'react-icons/pi';
@@ -75,6 +75,40 @@ type UploadedFile = {
   status: string;
   uploadedAt: string;
   size: number;
+  updatedAt: string;
+};
+
+const FILE_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pendiente',
+  processing: 'Procesando',
+  processed: 'Procesado',
+  error: 'Error',
+};
+
+const TERMINAL_FILE_STATUSES = new Set(['processed', 'error']);
+
+const FILE_STATUS_TONE: Record<string, string> = {
+  pending: 'n-text-palette-neutral-text',
+  processing: 'n-text-palette-warning-text',
+  processed: 'n-text-palette-success-text',
+  error: 'n-text-palette-danger-text',
+};
+
+const normalizeStatus = (status: string | null | undefined) => (status || '').toLowerCase();
+
+const formatFileStatus = (status: string) => {
+  const normalized = normalizeStatus(status);
+  return FILE_STATUS_LABELS[normalized] ?? status;
+};
+
+const isActiveFileStatus = (status: string) => {
+  const normalized = normalizeStatus(status);
+  return normalized !== '' && !TERMINAL_FILE_STATUSES.has(normalized);
+};
+
+const getStatusToneClass = (status: string) => {
+  const normalized = normalizeStatus(status);
+  return FILE_STATUS_TONE[normalized] ?? 'n-text-palette-neutral-text';
 };
 
 // ---------------------------------------------
@@ -99,6 +133,7 @@ function toLocalISOString(date: Date) {
 // ---------------------------------------------
 const CHAT_SERVICE_URL = import.meta.env.VITE_CHAT_SERVICE_URL;
 const FILE_SERVICE_URL = import.meta.env.VITE_FILE_SERVICE_URL;
+const FILE_SERVICE_BASE_URL = FILE_SERVICE_URL ? FILE_SERVICE_URL.replace(/\/$/, '') : null;
 
 async function chatBotAPI(question: string, sessionId?: string, createdAt?: string) {
   console.log("Starting chat API call");
@@ -114,7 +149,7 @@ async function chatBotAPI(question: string, sessionId?: string, createdAt?: stri
     return {
       response: {
         answer:
-          'Hello, here is an example response with sources. To use the chatbot, plug this to your backend with a fetch containing an object response of type: {response: string, src: Array<string>}'
+          'Hola, esta es una respuesta de ejemplo con fuentes. Para usar el chatbot, conectalo a tu backend enviando un objeto del tipo {response: string, src: Array<string>}.'
       ,
         created_at: new Date().toISOString(),
         retriever_result: [
@@ -186,23 +221,37 @@ export default function Chatbot(props: ChatbotProps) {
     deleteSession,
     addMessageToCurrentSession,
     updateSessionTitle,
+    isHistoryReady,
   } = useChatSession();
 
   const hasInitialized = useRef(false);
 
   useEffect(() => {
-    if (sessions.length === 0 && !hasInitialized.current) {
-      hasInitialized.current = true;
-      if (messages.length > 0) {
-        createNewSession('Sample Chat');
-        messages.forEach((msg) => {
-          addMessageToCurrentSession(msg as ChatMessage);
-        });
-      } else {
-        createNewSession('New Chat');
-      }
+    if (!isHistoryReady || hasInitialized.current) {
+      return;
     }
-  }, [sessions.length, messages, createNewSession, addMessageToCurrentSession]);
+
+    if (sessions.length > 0) {
+      hasInitialized.current = true;
+      return;
+    }
+
+    hasInitialized.current = true;
+    if (messages.length > 0) {
+      createNewSession('Chat de ejemplo');
+      messages.forEach((msg) => {
+        addMessageToCurrentSession(msg as ChatMessage);
+      });
+    } else {
+      createNewSession('Nuevo chat');
+    }
+  }, [
+    isHistoryReady,
+    sessions.length,
+    messages,
+    createNewSession,
+    addMessageToCurrentSession,
+  ]);
 
   const [inputMessage, setInputMessage] = useState('');
   const [, copy] = useCopyToClipboard();
@@ -220,6 +269,214 @@ export default function Chatbot(props: ChatbotProps) {
   const [uploadingSessionId, setUploadingSessionId] = useState<string | null>(null);
   const [expandedFilesSessions, setExpandedFilesSessions] = useState<Record<string, boolean>>({});
 
+  const fileStatusPollers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const fetchedSessionFilesRef = useRef<Set<string>>(new Set());
+
+  const clearFileStatusTracker = useCallback((fileId: string) => {
+    const timeoutId = fileStatusPollers.current.get(fileId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      fileStatusPollers.current.delete(fileId);
+    }
+  }, []);
+
+  const updateTrackedFile = useCallback(
+    (sessionId: string, fileId: string, partial: Partial<UploadedFile>) => {
+      const sanitizedEntries = Object.entries(partial).filter(([, value]) => value !== undefined);
+      if (sanitizedEntries.length === 0) {
+        return;
+      }
+
+      const sanitizedPartial = Object.fromEntries(sanitizedEntries) as Partial<UploadedFile>;
+
+      setUploadedFilesBySession((prev) => {
+        const sessionFiles = prev[sessionId];
+        if (!sessionFiles || sessionFiles.length === 0) {
+          return prev;
+        }
+
+        let didChange = false;
+        const updatedFiles = sessionFiles.map((file) => {
+          if (file.id !== fileId) {
+            return file;
+          }
+
+          const nextFile = { ...file, ...sanitizedPartial };
+          if (
+            nextFile.status === file.status &&
+            nextFile.updatedAt === file.updatedAt &&
+            nextFile.size === file.size &&
+            nextFile.name === file.name &&
+            nextFile.uploadedAt === file.uploadedAt
+          ) {
+            return file;
+          }
+
+          didChange = true;
+          return nextFile;
+        });
+
+        if (!didChange) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          [sessionId]: updatedFiles,
+        };
+      });
+    },
+    []
+  );
+
+  const startFileStatusTracking = useCallback(
+    (sessionId: string, fileId: string, initialStatus: string) => {
+      if (!FILE_SERVICE_BASE_URL) {
+        return;
+      }
+
+      const normalizedInitial = normalizeStatus(initialStatus);
+      if (TERMINAL_FILE_STATUSES.has(normalizedInitial)) {
+        clearFileStatusTracker(fileId);
+        return;
+      }
+
+      if (fileStatusPollers.current.has(fileId)) {
+        return;
+      }
+
+      const pollStatus = async () => {
+        try {
+          const { data } = await axios.get(`${FILE_SERVICE_BASE_URL}/files/${fileId}`);
+
+          const nextStatusRaw = (data.status ?? '').toString();
+          const nextStatus = nextStatusRaw || initialStatus;
+          const nextUpdatedAt =
+            data.updated_at ?? data.updatedAt ?? data.upload_time ?? data.uploadTime ?? undefined;
+          const normalizedNext = normalizeStatus(nextStatus);
+
+          updateTrackedFile(sessionId, fileId, {
+            status: nextStatus,
+            updatedAt: nextUpdatedAt,
+            size: data.file_size ?? data.size ?? undefined,
+          });
+
+          if (TERMINAL_FILE_STATUSES.has(normalizedNext)) {
+            clearFileStatusTracker(fileId);
+            return;
+          }
+
+          clearFileStatusTracker(fileId);
+          const timeoutId = setTimeout(() => {
+            fileStatusPollers.current.delete(fileId);
+            void pollStatus();
+          }, 3000);
+          fileStatusPollers.current.set(fileId, timeoutId);
+        } catch (error) {
+          if (axios.isAxiosError(error) && error.response?.status === 404) {
+            clearFileStatusTracker(fileId);
+            return;
+          }
+
+          clearFileStatusTracker(fileId);
+          const timeoutId = setTimeout(() => {
+            fileStatusPollers.current.delete(fileId);
+            void pollStatus();
+          }, 5000);
+          fileStatusPollers.current.set(fileId, timeoutId);
+        }
+      };
+
+      clearFileStatusTracker(fileId);
+      void pollStatus();
+    },
+    [FILE_SERVICE_BASE_URL, clearFileStatusTracker, updateTrackedFile]
+  );
+
+  useEffect(() => {
+    return () => {
+      fileStatusPollers.current.forEach((timeoutId) => clearTimeout(timeoutId));
+      fileStatusPollers.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    Object.entries(uploadedFilesBySession).forEach(([sessionId, files]) => {
+      files.forEach((file) => {
+        startFileStatusTracking(sessionId, file.id, file.status);
+      });
+    });
+  }, [uploadedFilesBySession, startFileStatusTracking]);
+
+  const fetchFilesForSession = useCallback(
+    async (sessionId: string) => {
+      if (!FILE_SERVICE_BASE_URL) {
+        return;
+      }
+
+      try {
+        const { data } = await axios.get(`${FILE_SERVICE_BASE_URL}/files/session/${sessionId}`);
+
+        const mapped: UploadedFile[] = Array.isArray(data)
+          ? data.map((item) => {
+              const uploadedAt = item.upload_time ?? new Date().toISOString();
+              return {
+                id: item.file_id,
+                name: item.original_filename,
+                status: item.status,
+                uploadedAt,
+                updatedAt: item.updated_at ?? uploadedAt,
+                size: item.file_size ?? 0,
+              } satisfies UploadedFile;
+            })
+          : [];
+
+        setUploadedFilesBySession((prev) => ({
+          ...prev,
+          [sessionId]: mapped,
+        }));
+
+        setUploadErrorsBySession((prev) => ({
+          ...prev,
+          [sessionId]: null,
+        }));
+
+        mapped.forEach((file) => startFileStatusTracking(sessionId, file.id, file.status));
+      } catch (error) {
+        let message = 'No se pudieron obtener los archivos subidos.';
+        if (axios.isAxiosError(error)) {
+          message =
+            (error.response?.data as { detail?: string } | undefined)?.detail ||
+            error.message ||
+            message;
+        } else if (error instanceof Error) {
+          message = error.message;
+        }
+
+        setUploadErrorsBySession((prev) => ({
+          ...prev,
+          [sessionId]: message,
+        }));
+      }
+    },
+    [FILE_SERVICE_BASE_URL, startFileStatusTracking]
+  );
+
+  useEffect(() => {
+    if (!FILE_SERVICE_BASE_URL) {
+      return;
+    }
+
+    sessions.forEach((session) => {
+      if (!session.id || fetchedSessionFilesRef.current.has(session.id)) {
+        return;
+      }
+
+      fetchedSessionFilesRef.current.add(session.id);
+      void fetchFilesForSession(session.id);
+    });
+  }, [sessions, fetchFilesForSession, FILE_SERVICE_BASE_URL]);
+
   const [typingMessageId, setTypingMessageId] = useState<number | null>(null);
   const [currentTypingText, setCurrentTypingText] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -228,13 +485,38 @@ export default function Chatbot(props: ChatbotProps) {
   // messageId -> meta
   const messageMetaRef = useRef<Map<number, MsgMeta>>(new Map());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const activeSessionTitle = (() => {
+    if (editingSessionId && editingSessionId === currentSession?.id) {
+      return editTitle;
+    }
+    return currentSession?.title ?? '';
+  })();
+
+  const normalizedActiveTitle = activeSessionTitle.trim().length > 0 ? activeSessionTitle : 'Nuevo chat';
 
   const handleCloseModal = () => setIsOpenModal(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const adjustTextareaHeight = useCallback((textarea: HTMLTextAreaElement) => {
+    const maxHeight = 200;
+    const minHeight = 48;
+    textarea.style.height = 'auto';
+    const nextHeight = Math.min(textarea.scrollHeight, maxHeight);
+    textarea.style.height = `${Math.max(nextHeight, minHeight)}px`;
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputMessage(e.target.value);
+    adjustTextareaHeight(e.target);
   };
+
+  useEffect(() => {
+    if (messageInputRef.current) {
+      adjustTextareaHeight(messageInputRef.current);
+    }
+  }, [adjustTextareaHeight, inputMessage]);
 
   useEffect(() => {
     if (!currentSession) {
@@ -259,8 +541,11 @@ export default function Chatbot(props: ChatbotProps) {
       return;
     }
 
-    if (!FILE_SERVICE_URL) {
-      setUploadErrorsBySession((prev) => ({ ...prev, [currentSession.id]: 'File service URL is not configured.' }));
+    if (!FILE_SERVICE_BASE_URL) {
+      setUploadErrorsBySession((prev) => ({
+        ...prev,
+        [currentSession.id]: 'La URL del servicio de archivos no está configurada.',
+      }));
       return;
     }
 
@@ -277,18 +562,19 @@ export default function Chatbot(props: ChatbotProps) {
       formData.append('file', file);
       formData.append('session_id', currentSession.id);
 
-      const baseUrl = FILE_SERVICE_URL.replace(/\/$/, '');
-      const { data } = await axios.post(`${baseUrl}/files/upload`, formData, {
+      const { data } = await axios.post(`${FILE_SERVICE_BASE_URL}/files/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
+      const uploadedAt = data.upload_time ?? new Date().toISOString();
       const uploaded: UploadedFile = {
         id: data.file_id,
         name: data.original_filename,
         status: data.status,
-        uploadedAt: data.upload_time,
+        uploadedAt,
+        updatedAt: data.updated_at ?? uploadedAt,
         size: data.file_size,
       };
 
@@ -355,29 +641,32 @@ export default function Chatbot(props: ChatbotProps) {
         setTypingMessageId(null);
         clearInterval(typingInterval);
 
-        // store meta for this message id
-        messageMetaRef.current.set(messageId, {
-          entities: response.entities || [],
-          model: response.model || '',
-          timeTaken: response.timeTaken || 0,
-        });
+        const messageContent = response.response ?? '';
+        if (messageContent.trim().length > 0) {
+          // store meta for this message id
+          messageMetaRef.current.set(messageId, {
+            entities: response.entities || [],
+            model: response.model || '',
+            timeTaken: response.timeTaken || 0,
+          });
 
-        const finalMessage: ChatMessage = {
-          id: messageId,
-          user: 'chatbot',
-          message: response.response,
-          datetime: datetime,
-          isTyping: false,
-          src: response.src || [],
-        } as ChatMessage;
-        addMessageToCurrentSession(finalMessage);
+          const finalMessage: ChatMessage = {
+            id: messageId,
+            user: 'chatbot',
+            message: messageContent,
+            datetime: datetime,
+            isTyping: false,
+            src: response.src || [],
+          } as ChatMessage;
+          addMessageToCurrentSession(finalMessage);
+        }
       }
     }, 20);
   };
 
   // ---------- Submit (backend integration) ----------
-  const handleSubmit = async (e: { preventDefault: () => void }) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: { preventDefault: () => void }) => {
+    e?.preventDefault();
     if (!inputMessage.trim() || !currentSession) {
       return;
     }
@@ -394,6 +683,9 @@ export default function Chatbot(props: ChatbotProps) {
 
     addMessageToCurrentSession(userMessage);
     setInputMessage('');
+    if (messageInputRef.current) {
+      messageInputRef.current.style.height = 'auto';
+    }
     setIsLoading(true);
 
     // placeholder typing bubble
@@ -450,6 +742,36 @@ export default function Chatbot(props: ChatbotProps) {
 
   const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+
+    setUploadedFilesBySession((prev) => {
+      const sessionFiles = prev[sessionId];
+      if (!sessionFiles) {
+        return prev;
+      }
+
+      sessionFiles.forEach((file) => clearFileStatusTracker(file.id));
+      const { [sessionId]: _removed, ...rest } = prev;
+      return rest;
+    });
+
+    setUploadErrorsBySession((prev) => {
+      if (!(sessionId in prev)) {
+        return prev;
+      }
+      const { [sessionId]: _removed, ...rest } = prev;
+      return rest;
+    });
+
+    setExpandedFilesSessions((prev) => {
+      if (!(sessionId in prev)) {
+        return prev;
+      }
+      const { [sessionId]: _removed, ...rest } = prev;
+      return rest;
+    });
+
+    setUploadingSessionId((prev) => (prev === sessionId ? null : prev));
+
     deleteSession(sessionId);
   };
 
@@ -479,13 +801,14 @@ export default function Chatbot(props: ChatbotProps) {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 1) {
-      return 'Today';
+      return 'Hoy';
     }
     if (diffDays === 2) {
-      return 'Yesterday';
+      return 'Ayer';
     }
     if (diffDays < 7) {
-      return `${diffDays - 1} days ago`;
+      const elapsed = diffDays - 1;
+      return `Hace ${elapsed} día${elapsed === 1 ? '' : 's'}`;
     }
     return date.toLocaleDateString();
   };
@@ -510,7 +833,7 @@ export default function Chatbot(props: ChatbotProps) {
         <Drawer.Header>
           <div className='flex items-center justify-between w-full gap-2'>
             <Button color='neutral' onClick={handleNewSession} fill='outlined'>
-              <PencilSquareIconOutline className='w-4 h-4 mr-4' /> New chat
+              <PencilSquareIconOutline className='w-4 h-4 mr-4' /> Nuevo chat
             </Button>
             <Button
               color='neutral'
@@ -518,7 +841,7 @@ export default function Chatbot(props: ChatbotProps) {
               onClick={() => fileInputRef.current?.click()}
               isDisabled={uploadingSessionId === currentSession?.id || !currentSession}
             >
-              <ArrowUpTrayIconOutline className='w-4 h-4 mr-4' /> Upload file
+              <ArrowUpTrayIconOutline className='w-4 h-4 mr-4' /> Subir archivo
             </Button>
             <input
               ref={fileInputRef}
@@ -538,7 +861,7 @@ export default function Chatbot(props: ChatbotProps) {
                 onClick={() => setIsChatListOpen((prev) => !prev)}
               >
                 <Typography variant='body-medium' className='n-text-palette-neutral-text font-medium'>
-                  Chats
+                  Conversaciones
                 </Typography>
                 {isChatListOpen ? (
                   <ChevronUpIconOutline className='w-4 h-4' />
@@ -550,10 +873,10 @@ export default function Chatbot(props: ChatbotProps) {
                 sessions.length === 0 ? (
                   <div className='flex flex-col p-4 text-center'>
                     <Typography variant='body-medium' className='n-text-palette-neutral-text-weak'>
-                      No chat sessions yet.
+                      Todavía no hay chats.
                     </Typography>
                     <Button onClick={handleNewSession} className='mt-3' size='small'>
-                      Start New Chat
+                      Crear nuevo chat
                     </Button>
                   </div>
                 ) : (
@@ -613,7 +936,7 @@ export default function Chatbot(props: ChatbotProps) {
                                   {session.title}
                                 </Typography>
                                 <Typography variant='body-small' className='n-text-palette-neutral-text-weak mt-1'>
-                                  {formatDate(session.updatedAt)} • {session.messages.length} messages
+                                  {formatDate(session.updatedAt)} • {session.messages.length} mensajes
                                 </Typography>
                               </div>
 
@@ -692,8 +1015,14 @@ export default function Chatbot(props: ChatbotProps) {
                                             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
                                               Estado:
                                             </Typography>
-                                            <Typography variant='body-small' className='n-text-palette-neutral-text'>
-                                              {file.status}
+                                            <Typography
+                                              variant='body-small'
+                                              className={`flex items-center gap-2 ${getStatusToneClass(file.status)}`}
+                                            >
+                                              {formatFileStatus(file.status)}
+                                              {isActiveFileStatus(file.status) ? (
+                                                <LoadingSpinner size='small' />
+                                              ) : null}
                                             </Typography>
 
                                             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
@@ -702,6 +1031,17 @@ export default function Chatbot(props: ChatbotProps) {
                                             <Typography variant='body-small' className='n-text-palette-neutral-text'>
                                               {new Date(file.uploadedAt).toLocaleString()}
                                             </Typography>
+
+                                            {file.updatedAt && file.updatedAt !== file.uploadedAt ? (
+                                              <>
+                                                <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
+                                                  Actualizado:
+                                                </Typography>
+                                                <Typography variant='body-small' className='n-text-palette-neutral-text'>
+                                                  {new Date(file.updatedAt).toLocaleString()}
+                                                </Typography>
+                                              </>
+                                            ) : null}
 
                                             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
                                               Tamaño:
@@ -758,10 +1098,10 @@ export default function Chatbot(props: ChatbotProps) {
           </IconButton>
           <div>
             <Typography variant='h6' className='n-text-palette-neutral-text'>
-              {currentSession?.title || 'New Chat'}
+              {normalizedActiveTitle}
             </Typography>
             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-              {(currentSession?.messages?.length || 0)} messages
+              {(currentSession?.messages?.length || 0)} mensajes
             </Typography>
           </div>
         </div>
@@ -933,7 +1273,7 @@ export default function Chatbot(props: ChatbotProps) {
                 <Widget header='' isElevated={true} className='p-4 self-start max-w-[55%] n-bg-palette-neutral-bg-weak'>
                   <div className='flex items-center gap-2'>
                     <LoadingSpinner size='small' />
-                    <Typography variant='body-medium'>Thinking...</Typography>
+                    <Typography variant='body-medium'>Pensando...</Typography>
                   </div>
                 </Widget>
               </div>
@@ -970,7 +1310,7 @@ export default function Chatbot(props: ChatbotProps) {
                     </ReactMarkdown>
                   </div>
                   <div className='text-right align-bottom pt-3'>
-                    <Typography variant='body-small'>Typing...</Typography>
+                    <Typography variant='body-small'>Escribiendo...</Typography>
                   </div>
                 </Widget>
               </div>
@@ -979,20 +1319,34 @@ export default function Chatbot(props: ChatbotProps) {
         </div>
 
         <div className='n-bg-palette-neutral-bg-default border-t n-border-palette-neutral-border-weak p-4'>
-          <form onSubmit={handleSubmit} className='flex gap-2.5 w-full'>
-            <TextInput
-              className='flex-1'
+          <form onSubmit={handleSubmit} className='flex items-end gap-2.5 w-full'>
+            <textarea
+              ref={messageInputRef}
               value={inputMessage}
-              isFluid
               onChange={handleInputChange}
-              htmlAttributes={{
-                type: 'text',
-                'aria-label': 'Chatbot Input',
-                placeholder: 'Type your message...',
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  if (inputMessage.trim() && !isLoading) {
+                    void handleSubmit();
+                  }
+                }
               }}
+              onFocus={(event) => adjustTextareaHeight(event.currentTarget)}
+              rows={1}
+              className='flex-1 w-full max-h-48 min-h-[48px] resize-none rounded-xl border border-[rgb(var(--theme-palette-neutral-border-weak))] bg-[rgb(var(--theme-palette-neutral-bg-weak))] px-4 py-3 text-base text-[rgb(var(--theme-palette-neutral-text))] shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--theme-palette-primary-border))] transition-all'
+              placeholder='Escribe tu mensaje...'
+              aria-label='Mensaje para el chatbot'
             />
-            <Button type='submit' isDisabled={!inputMessage.trim()}>
-              Send
+            <Button
+              type='submit'
+              aria-label='Enviar mensaje'
+              color='primary'
+              fill='solid'
+              isDisabled={!inputMessage.trim() || isLoading}
+              className='!px-3 flex items-center justify-center'
+            >
+              <PaperAirplaneIconOutline className='w-5 h-5' />
             </Button>
           </form>
         </div>

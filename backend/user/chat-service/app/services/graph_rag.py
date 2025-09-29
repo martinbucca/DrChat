@@ -20,7 +20,7 @@ class GraphRAGPipeline:
         result_formatter: Optional function to format retriever results.
         history: Stores the conversation history for context.
     Methods:
-        __init__(llm, retriever, prompt_template=None, default_response="No relevant information found.", 
+        __init__(llm, retriever, prompt_template=None, default_response="No se encontró información relevante.", 
                  result_formatter=None, history=None):
             Initializes the pipeline with the LLM, retriever, prompt template, default response, 
             optional result formatter, and message history.
@@ -36,7 +36,7 @@ class GraphRAGPipeline:
     # Fijarse cual es la mejor manera de formatear el contexto para que el LLM lo entienda y lo use de la mejor manera posible.
     TEMPLATE = PromptTemplate.from_template(
         template="""
-You are a medical assistant specialized in systemic lupus erythematosus (SLE).
+You are a medical assistant specialized in Covid 19.
 Always:
 - Provide a concise, structured answer
 - Use the retrieved context to support your response
@@ -63,7 +63,7 @@ Answer:
         retriever: Retriever,
         history: ChatMessageHistory,
         prompt_template: PromptTemplate = None,
-        default_response: str = "No relevant information found.",
+        default_response: str = "No se encontró información relevante.",
         result_formatter: Optional[Callable[[Any], RetrieverResultItem]] = None,
     ):
         self.llm = llm
@@ -89,9 +89,17 @@ Answer:
             **retriever_config
         )
         if len(retriever_result.items) == 0:
+            created_at = None
+            if self.history:
+                created_at = self.history.add_message(
+                    LLMMessage(role="ai", content=self.default_response),
+                    session_id,
+                )
+
             return RagResult(
                 answer=self.default_response,
-                retriever_result=retriever_result
+                retriever_result=retriever_result,
+                created_at=created_at,
             )
         context_formatted = "\n\n"
         for item in retriever_result.items:
@@ -105,7 +113,7 @@ Answer:
             for msg in messages:
                 formatted_history += f"{msg['role']}: {msg['content']}\n"
             if formatted_history == "":
-                formatted_history = "No previous messages."
+                formatted_history = "Sin mensajes previos."
 
         prompt = self.prompt_template.format(
             query_text=query_text,
@@ -127,7 +135,5 @@ Answer:
             retriever_result=retriever_result,
             created_at=created_at
         )
-
-
 
 

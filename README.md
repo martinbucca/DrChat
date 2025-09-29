@@ -42,6 +42,9 @@ cp frontend/.env.example frontend/.env
 # Ver todos los comandos disponibles
 make help
 
+# Buildear todo el proyecto
+make build
+
 # Levantar proyecto completo con bases de datos locales
 make up
 
@@ -137,6 +140,7 @@ Contiene la configuración específica del frontend:
 | `VITE_BACKEND_URL`      | URL del servicio de chat backend (ej: `http://localhost:8002`)             |
 | `VITE_USER_API_URL`     | URL del servicio de usuarios (ej: `http://localhost:8004`)                 |
 | `VITE_FILE_SERVICE_URL` | URL del servicio de archivos (ej: `http://localhost:8001`)                 |
+| `VITE_CHAT_HISTORY_SERVICE_URL` | URL del servicio de historial de chat (ej: `http://localhost:8003`)       |
 
 ---
 

@@ -2,14 +2,11 @@ import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-
-from fastapi import UploadFile, HTTPException, Depends
-from sqlalchemy.orm import Session
+from fastapi import UploadFile, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from core.config import settings
-from core.database import get_database
 from core.logging import logger as log
 from models.file import (
     FileModel,
@@ -239,6 +236,39 @@ class FileService:
         except Exception as e:
             log.error(f"Error listing files: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Error listing files: {str(e)}")
+
+    async def list_files_for_session(self, session_id: str, db: Session) -> list[FileStatusResponse]:
+        """List uploaded files associated with a chat session"""
+        log.info(f"Listing files for session: {session_id}")
+
+        try:
+            query = (
+                db.query(FileModel)
+                .filter(FileModel.session_id == session_id)
+                .order_by(FileModel.upload_time.desc())
+            )
+            file_records = query.all()
+
+            return [
+                FileStatusResponse(
+                    file_id=record.file_id,
+                    original_filename=record.original_filename,
+                    saved_filename=record.saved_filename,
+                    file_path=record.file_path,
+                    file_size=record.file_size,
+                    content_type=record.content_type,
+                    session_id=record.session_id,
+                    status=record.status,
+                    upload_time=record.upload_time.isoformat(),
+                    created_at=record.created_at.isoformat(),
+                    updated_at=record.updated_at.isoformat(),
+                    _id=str(record.id),
+                )
+                for record in file_records
+            ]
+        except SQLAlchemyError as e:
+            log.error(f"Database error while listing files for session {session_id}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
 # Global file service instance

@@ -8,7 +8,7 @@ from models.file import (
     FileUploadResponse,
     FileStatusResponse,
     FileStatusUpdateResponse,
-    FileListResponse
+    FileListResponse,
 )
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -40,3 +40,9 @@ async def update_file_status(file_id: str, status: str, db: Session = Depends(ge
 async def list_files():
     """List all uploaded files in the shared storage directory"""
     return await file_service.list_files()
+
+
+@router.get("/session/{session_id}", response_model=list[FileStatusResponse])
+async def list_files_for_session(session_id: str, db: Session = Depends(get_database)):
+    """List files that belong to the provided session identifier"""
+    return await file_service.list_files_for_session(session_id, db)
