@@ -1364,6 +1364,7 @@ export default function Chatbot(props: ChatbotProps) {
             model={modelModal}
             timeTaken={timeTaken}
             entities={entitiesModal}
+            onClose={handleCloseModal}
           />
         </Modal>
       </div>
