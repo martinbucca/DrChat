@@ -7,6 +7,9 @@ from neo4j_graphrag.types import RetrieverResult, RetrieverResultItem
 from app.services.chat_history import LLMMessage
 from app.services.rag_result import RagResult
 from app.services.chat_history import ChatMessageHistory
+import logging
+
+logger = logging.getLogger(__name__)
 class GraphRAGPipeline:
     """
     GraphRAGPipeline orchestrates a Retrieval-Augmented Generation (RAG) workflow. 
@@ -89,12 +92,20 @@ Answer:
                 "$eq": session_id
             }
         }
-        retriever_result: RetrieverResult = self.retriever.search(
-            query_text=query_text,
-            filters=filters,
-            **retriever_config
-        )
+        
+        try:
+            retriever_result: RetrieverResult = self.retriever.search(
+                query_text=query_text,
+                filters=filters,
+                **retriever_config
+            )
+        except Exception as e:
+            logger.error(f"Error during retrieval: {e}")
+            raise
+            
         if len(retriever_result.items) == 0:
+            logger.warning(f"No relevant documents found for query")
+            
             created_at = None
             if self.history:
                 created_at = self.history.add_message(
@@ -127,14 +138,9 @@ Answer:
             message_history=formatted_history,
         )
 
-        print("===== Prompt enviado al LLM =====")
-        print(prompt)
-        print("=================================")
-
         llm_response = self.llm.invoke(prompt)
 
         created_at = self.history.add_message(LLMMessage(role="ai", content=llm_response.content), session_id)
-        print(f"Answer: {llm_response.content}")
 
         return RagResult(
             answer=llm_response.content,

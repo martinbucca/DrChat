@@ -1,4 +1,5 @@
 import uvicorn
+import logging
 from app.services.driver import Neo4jDriver
 from app.services.embedding import Embedding
 from app.services.llm import LLM
@@ -8,6 +9,13 @@ from app.services.chat_history import ChatMessageHistory
 from app.api.api import API
 from app.api.answer_question_endpoint import AnswerQuestionEndpoint
 from app.config import (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, VECTOR_INDEX_NAME, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
+
+# Configure logging for debugging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 llm_instance = LLM.get_instance()
 llm = llm_instance.llm

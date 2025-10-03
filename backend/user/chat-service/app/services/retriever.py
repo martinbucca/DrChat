@@ -1,6 +1,9 @@
 from neo4j_graphrag.retrievers import VectorCypherRetriever
 import neo4j
 from neo4j_graphrag.types import RetrieverResultItem
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Retriever:
     """
@@ -27,8 +30,8 @@ class Retriever:
     WITH node, score
     MATCH (node)-[:PART_OF_DOCUMENT]->(d:Document)
     WITH node, score, d
-    // get the entities
-    MATCH (node)-[:MENTIONS]-(e)
+    // get the entities - optional to include chunks without entity mentions
+    OPTIONAL MATCH (node)-[:MENTIONS]-(e)
     WITH node, score, d, collect({
         text: e.text,
         label: e.label,
@@ -45,6 +48,8 @@ class Retriever:
 
 
     def __init__(self, driver, embedder, index_name):
+        logger.info(f"Initializing retriever with index: {index_name}")
+        
         self._retriever = VectorCypherRetriever(
             driver,
             index_name=index_name,
@@ -57,6 +62,8 @@ class Retriever:
         self._retriever._node_label = "Chunk"
         self._retriever._node_embedding_property = "embedding"
         self._embedding_dimension = 3072
+        
+        logger.info("Retriever initialized successfully")
 
     # TODO: Implement a better formatter that structures the results in a more useful way.
     # def formatter(self, results):
@@ -71,7 +78,7 @@ class Retriever:
 
         # Format entities as "name (id)"
         entities_str = ", ".join(
-            f"{ent.get('text', '')} ({ent.get('label', '')})" for ent in entities
+            f"{ent.get('text', '')} ({ent.get('label', '')})" for ent in entities if ent.get('text')
         )
 
         # Prepare content string, clear and ready for LLM
@@ -97,6 +104,16 @@ class Retriever:
             cls._instance = cls(driver, embedder, index_name)
         return cls._instance
     
+    def search(self, query_text: str, filters: dict = None, **kwargs):
+        """Wrapper around _retriever.search with logging"""
+        try:
+            result = self._retriever.search(query_text=query_text, filters=filters, **kwargs)
+            logger.info(f"Search completed, found {len(result.items)} items")
+            return result
+        except Exception as e:
+            logger.error(f"Search failed: {e}")
+            raise
+
     @property
     def retriever(self):
         return self._retriever
