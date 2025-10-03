@@ -17,6 +17,33 @@ class EntityRelationshipExtractor:
     
     _instance = None
     
+    # Configuración de filtros inteligentes
+    MEDICAL_STOP_WORDS = {
+        'generic_descriptors': ['mechanical', 'fluorescent', 'chemical', 'physical', 'biological', 'technical', 
+                               'clinical', 'experimental', 'statistical', 'numerical', 'analytical', 'synthetic',
+                               'automatic', 'electronic', 'digital', 'manual', 'optical', 'magnetic'],
+        'vague_terms': ['factors', 'effects', 'methods', 'approaches', 'techniques', 'procedures', 'processes',
+                       'conditions', 'systems', 'mechanisms', 'pathways', 'networks', 'materials', 'components',
+                       'elements', 'structures', 'patterns', 'models', 'features', 'properties'],
+        'low_value': ['increased', 'decreased', 'reduced', 'elevated', 'improved', 'enhanced', 'modified',
+                     'altered', 'affected', 'involved', 'associated', 'related', 'observed', 'detected',
+                     'measured', 'assessed', 'evaluated', 'analyzed', 'examined', 'studied'],
+        'problematic_single_words': ['all cells', 'cells', 'cell', 'tissue', 'sample', 'control', 'group',
+                                   'study', 'analysis', 'data', 'result', 'findings', 'conclusion']
+    }
+    
+    # Thresholds dinámicos por tipo de entidad
+    CONFIDENCE_THRESHOLDS = {
+        'Disease_disorder': 0.92,        # Más restrictivo para enfermedades
+        'Therapeutic_procedure': 0.90,   # Alto para tratamientos
+        'Diagnostic_procedure': 0.88,    # Estándar para diagnósticos
+        'Lab_value': 0.85,              # Menos restrictivo para valores
+        'Sign_symptom': 0.90,           # Alto para síntomas
+        'Biological_structure': 0.88,   # Estándar para estructuras
+        'Detailed_description': 0.82,   # Más permisivo para descripciones
+        'Coreference': 0.85             # Estándar para correferencias
+    }
+    
     def __init__(self):
         """Initialize with biomedical NER model"""
         self.device = 0 if torch.cuda.is_available() else -1
@@ -87,6 +114,81 @@ class EntityRelationshipExtractor:
             
         return text
     
+    def _is_entity_contextually_valid(self, entity_text: str, entity_type: str, context: str) -> bool:
+        """Validación contextual inteligente de entidades"""
+        entity_lower = entity_text.lower().strip()
+        context_lower = context.lower()
+        
+        # Verificar si la entidad está en stop-words por categoría
+        for category, words in self.MEDICAL_STOP_WORDS.items():
+            if entity_lower in words:
+                # Si es un término genérico, requiere contexto médico específico
+                if category == 'generic_descriptors':
+                    # Permitir si está en contexto de procedimientos específicos
+                    medical_contexts = ['therapy', 'treatment', 'surgery', 'procedure', 'intervention',
+                                      'device', 'implant', 'prosthetic', 'cardiac', 'ventricular', 'vascular']
+                    if not any(ctx in context_lower for ctx in medical_contexts):
+                        return False
+                
+                # Si es un término vago, requiere contexto muy específico
+                elif category == 'vague_terms':
+                    # Solo permitir si está muy cerca de términos médicos específicos
+                    specific_terms = ['cardiac', 'cardiovascular', 'heart', 'ventricular', 'arterial', 
+                                    'pulmonary', 'myocardial', 'therapeutic', 'diagnostic']
+                    # Buscar en un contexto más pequeño alrededor de la entidad
+                    entity_pos = context_lower.find(entity_lower)
+                    if entity_pos != -1:
+                        local_context = context_lower[max(0, entity_pos-50):entity_pos+len(entity_lower)+50]
+                        if not any(term in local_context for term in specific_terms):
+                            return False
+                
+                # Términos de bajo valor requieren contexto cuantitativo
+                elif category == 'low_value':
+                    # Permitir solo si está cerca de valores específicos o medidas
+                    numeric_pattern = r'\b\d+(\.\d+)?\s*(mg|ml|mmol|percent|%|fold|times|days|weeks|months)\b'
+                    if not re.search(numeric_pattern, context_lower):
+                        return False
+        
+        return True
+
+    def _get_dynamic_threshold(self, entity_type: str) -> float:
+        """Obtener threshold dinámico basado en tipo de entidad"""
+        return self.CONFIDENCE_THRESHOLDS.get(entity_type, 0.88)
+    
+    def _is_corrupted_entity(self, entity_text: str) -> bool:
+        """Detecta entidades corruptas o con patrones extraños"""
+        text = entity_text.lower().strip()
+        
+        # Patrones de corrupción comunes
+        corruption_patterns = [
+            r'o\s+o+\s*o+',  # "o o o o o" patterns
+            r'^[a-z]\s+[a-z]\s+[a-z]',  # Letras sueltas repetidas como "a b c"
+            r'(\w)\1{4,}',  # Caracteres repetidos >4 veces como "aaaaa"
+            r'^[^a-zA-Z]*$',  # Solo símbolos/números
+            r'\s{3,}',  # Espacios excesivos
+            r'^[oO0]+\s+[oO0]+',  # Patrones de O's y 0's
+        ]
+        
+        import re
+        for pattern in corruption_patterns:
+            if re.search(pattern, text):
+                return True
+                
+        # Verificar ratio de espacios vs caracteres
+        if len(text) > 5:
+            space_ratio = text.count(' ') / len(text)
+            if space_ratio > 0.6:  # Más de 60% espacios
+                return True
+        
+        # Verificar si tiene demasiadas palabras de 1 letra
+        words = text.split()
+        if len(words) > 3:
+            single_char_words = sum(1 for word in words if len(word) == 1)
+            if single_char_words / len(words) > 0.5:  # Más de 50% palabras de 1 letra
+                return True
+                
+        return False
+
     def extract_entities_and_relationships(self, text: str) -> Dict:
         """Extract medical entities and relationships from text using BioBERT model"""
         try:
@@ -112,32 +214,36 @@ class EntityRelationshipExtractor:
 
                 chunk_entities = []
                 for entity in ner_results:
-                    # Filtros más estrictos específicos para BioBERT
                     raw_text = entity['word'].strip()
+                    entity_type = entity['entity_group']
                     
-                    # Filtrar entidades con problemas comunes de BioBERT
-                    if (entity['score'] > 0.88 and  # Confianza más alta para BioBERT
-                        len(raw_text) >= 6 and  # Mínimo 6 caracteres para BioBERT
+                    # Obtener threshold dinámico basado en tipo de entidad
+                    dynamic_threshold = self._get_dynamic_threshold(entity_type)
+                    
+                    # Filtros básicos con confianza dinámica
+                    if (entity['score'] > dynamic_threshold and  # Confianza dinámica por tipo
+                        len(raw_text) >= 6 and  # Mínimo 6 caracteres
                         not raw_text.isdigit() and  # No solo números
                         not raw_text.startswith('##') and  # Filtrar tokens fragmentados de BERT
                         not raw_text.endswith((' ', '-', '_', '+', '##')) and  # No terminar con caracteres problemáticos
                         not raw_text.startswith((' ', '-', '_', '+')) and  # No empezar con caracteres problemáticos
                         not re.match(r'^[a-zA-Z]{1,4}$', raw_text) and  # No palabras muy cortas sueltas
                         not re.match(r'^[\d\s\-–%+]+$', raw_text) and  # No solo números y símbolos
-                        not raw_text.lower() in ['the', 'and', 'or', 'of', 'in', 'to', 'for', 'with', 'by', 'this', 'that', 'these', 'those', 'from', 
-                                                'human', 'factors', 'effects', 'delivered', 'committed', 'natal', 'pulse'] and  # Stop words expandidas
                         not re.match(r'^[^\w\s]+$', raw_text) and  # No solo caracteres especiales
-                        len(raw_text.replace(' ', '').replace('-', '').replace('+', '')) > 3):  # Contenido real mínimo
+                        len(raw_text.replace(' ', '').replace('-', '').replace('+', '')) > 3 and  # Contenido real mínimo
+                        not self._is_corrupted_entity(raw_text)):  # Filtrar entidades corruptas
                         
                         canonical = self._canonicalize(raw_text)
                         
-                        # Verificar que la canonicalización no esté vacía y tenga longitud mínima
-                        if canonical and len(canonical) >= 4:
+                        # Validación contextual inteligente
+                        if (canonical and len(canonical) >= 4 and
+                            not self._is_corrupted_entity(canonical) and
+                            self._is_entity_contextually_valid(raw_text, entity_type, chunk)):
                             entity_data = {
                                 'id': str(uuid.uuid4()),
                                 'text': raw_text,
                                 'canonical_text': canonical,
-                                'label': entity['entity_group'],
+                                'label': entity_type,
                                 'start': int(entity['start']),
                                 'end': int(entity['end']),
                                 'confidence': float(entity['score'])
@@ -231,7 +337,9 @@ class EntityRelationshipExtractor:
                 if (not entity1.get('canonical_text') or 
                     not entity2.get('canonical_text') or
                     len(entity1.get('canonical_text', '')) < 3 or  # Minimum 3 chars
-                    len(entity2.get('canonical_text', '')) < 3):
+                    len(entity2.get('canonical_text', '')) < 3 or
+                    self._is_corrupted_entity(entity1.get('canonical_text', '')) or
+                    self._is_corrupted_entity(entity2.get('canonical_text', ''))):
                     continue
 
                 # Extract text between entities
@@ -299,16 +407,18 @@ class EntityRelationshipExtractor:
                     entity1.get('text') == entity2.get('text')):
                     continue
                     
-                # Verificar distancia (más permisiva para relaciones tipo-based)
+                # Verificar distancia (más permisiva para relaciones tipo-based con chunks pequeños)
                 distance = abs(entity1['start'] - entity2['start'])
-                if distance > 200:  # Un poco más permisiva
+                if distance > 300:  # AUMENTADO para aprovechar chunks más granulares
                     continue
                     
                 # Verificar validez de entidades
                 if (not entity1.get('canonical_text') or 
                     not entity2.get('canonical_text') or
                     len(entity1.get('canonical_text', '')) < 3 or
-                    len(entity2.get('canonical_text', '')) < 3):
+                    len(entity2.get('canonical_text', '')) < 3 or
+                    self._is_corrupted_entity(entity1.get('canonical_text', '')) or
+                    self._is_corrupted_entity(entity2.get('canonical_text', ''))):
                     continue
                 
                 # Obtener tipos de entidad
@@ -328,21 +438,44 @@ class EntityRelationshipExtractor:
                     target_entity = entity1
                 
                 if relation_type:
-                    # Calcular confianza basada en distancia
+                    # Calcular confianza basada en distancia y contexto
                     base_confidence = 0.75
                     distance_factor = max(0.5, 1.0 - (distance / 300.0))
-                    final_confidence = min(0.9, base_confidence * distance_factor)
                     
-                    relationship = {
-                        'id': str(uuid.uuid4()),
-                        'source': source_entity.get('canonical_text'),
-                        'source_surface': source_entity.get('text'),
-                        'target': target_entity.get('canonical_text'),
-                        'target_surface': target_entity.get('text'),
-                        'type': relation_type,
-                        'confidence': final_confidence
-                    }
-                    relationships.append(relationship)
+                    # Penalizar relaciones entre términos genéricos
+                    source_text = source_entity.get('text', '').lower()
+                    target_text = target_entity.get('text', '').lower()
+                    
+                    # Reducir confianza si ambos términos son genéricos
+                    generic_penalty = 1.0
+                    generic_terms = {'mechanical', 'fluorescent', 'increased', 'decreased', 'factors', 'effects'}
+                    if source_text in generic_terms and target_text in generic_terms:
+                        continue  # Saltar relaciones completamente genéricas
+                    elif source_text in generic_terms or target_text in generic_terms:
+                        generic_penalty = 0.8  # Reducir confianza para relaciones semi-genéricas
+                    
+                    # Boost de confianza para relaciones médicas específicas
+                    medical_boost = 1.0
+                    specific_medical = {'heart failure', 'cardiovascular diseases', 'cardiac', 'ventricular', 
+                                      'myocardial', 'arterial', 'pulmonary', 'therapeutic', 'diagnostic'}
+                    if (any(term in source_text for term in specific_medical) or 
+                        any(term in target_text for term in specific_medical)):
+                        medical_boost = 1.2
+                    
+                    final_confidence = min(0.9, base_confidence * distance_factor * generic_penalty * medical_boost)
+                    
+                    # Solo crear relaciones con confianza mínima
+                    if final_confidence >= 0.65:  # Threshold mínimo para relaciones de calidad
+                        relationship = {
+                            'id': str(uuid.uuid4()),
+                            'source': source_entity.get('canonical_text'),
+                            'source_surface': source_entity.get('text'),
+                            'target': target_entity.get('canonical_text'),
+                            'target_surface': target_entity.get('text'),
+                            'type': relation_type,
+                            'confidence': final_confidence
+                        }
+                        relationships.append(relationship)
         
         return relationships
     
@@ -391,14 +524,16 @@ class EntityRelationshipExtractor:
                 if (not entity1.get('canonical_text') or 
                     not entity2.get('canonical_text') or
                     len(entity1.get('canonical_text', '')) < 3 or
-                    len(entity2.get('canonical_text', '')) < 3):
+                    len(entity2.get('canonical_text', '')) < 3 or
+                    self._is_corrupted_entity(entity1.get('canonical_text', '')) or
+                    self._is_corrupted_entity(entity2.get('canonical_text', ''))):
                     continue
                 
                 # Calcular distancia
                 distance = abs(entity1['start'] - entity2['start'])
                 
                 # Permitir distancias mayores para relaciones importantes
-                max_distance = 800  # Aumentado significativamente
+                max_distance = 1200
                 
                 if distance > max_distance:
                     continue

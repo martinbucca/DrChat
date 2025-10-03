@@ -36,8 +36,8 @@ class Chunker:
         hi_res_model_name: str = "yolox",
         element_exclude: Optional[list] = None,
         extract_image_block_types: Optional[list] = None,
-        chunking_strategy: str = "by_title",
-        max_characters: int = 1200,
+        chunking_strategy: str = "basic",
+        max_characters: int = 800,
         split_pdf_page: bool = True,
         split_pdf_allow_failed: bool = True,
         split_pdf_concurrency_level: int = 15,
@@ -48,8 +48,8 @@ class Chunker:
         self.extract_image_block_types = extract_image_block_types or ['Image', 'Table']
         self.chunking_strategy = chunking_strategy
         self.max_characters = max_characters
-        self.new_after_n_chars = max_characters
-        self.combine_text_under_n_chars = 50
+        self.new_after_n_chars = int(max_characters * 0.6)  # 480 chars - crear nuevo chunk antes
+        self.combine_text_under_n_chars = int(max_characters * 0.15)  # 120 chars - combinar chunks pequeños
         self.split_pdf_page = split_pdf_page
         self.split_pdf_allow_failed = split_pdf_allow_failed
         self.split_pdf_concurrency_level = split_pdf_concurrency_level
@@ -97,21 +97,45 @@ class Chunker:
         return cleaned_elements
     
     def _clean_repetitive_text(self, text: str) -> str:
-        """Remover texto repetitivo como encabezados/pies de página"""
+        """Remover texto repetitivo y optimizar para detección de relaciones médicas"""
+        if not text or not text.strip():
+            return ""
+            
+        # Patrones de limpieza básica
         patterns_to_remove = [
             r'Review\s+Regeneration\s+of\s+the\s+heart',
             r'EMBO\s+Molecular\s+Medicine',
             r'©\s+\d{4}\s+.*',
             r'http[s]?://\S+',  # URLs
+            r'\b[A-Z]{2,}\s+\d{4}\b',  # Códigos de publicación
+            r'\bFig\.\s*\d+[a-z]?\b',  # Referencias a figuras
+            r'\bTable\s+\d+\b',  # Referencias a tablas
+            r'\(\s*see\s+.*?\)',  # Referencias cruzadas
         ]
 
         for pattern in patterns_to_remove:
             text = re.sub(pattern, '', text, flags=re.IGNORECASE)
 
-        # Collapsar espacios múltiples
-        text = re.sub(r'\s+', ' ', text).strip()
+        # Optimización para relaciones médicas:
+        # Normalizar espacios alrededor de conectores importantes
+        medical_connectors = [
+            r'\s+and\s+', r'\s+or\s+', r'\s+with\s+', r'\s+in\s+', r'\s+of\s+', 
+            r'\s+for\s+', r'\s+by\s+', r'\s+via\s+', r'\s+through\s+',
+            r'\s+causes?\s+', r'\s+leads?\s+to\s+', r'\s+results?\s+in\s+',
+            r'\s+associated\s+with\s+', r'\s+related\s+to\s+', r'\s+linked\s+to\s+',
+            r'\s+affects?\s+', r'\s+influences?\s+', r'\s+regulates?\s+'
+        ]
+        
+        for connector_pattern in medical_connectors:
+            # Normalizar espacios alrededor de conectores (importante para relaciones)
+            normalized = connector_pattern.replace(r'\s+', ' ').replace(r'\s+', ' ')
+            text = re.sub(connector_pattern, normalized, text, flags=re.IGNORECASE)
 
-        return text
+        # Collapsar espacios múltiples PERO preservar estructura de párrafos
+        text = re.sub(r'[ \t]+', ' ', text)  # Solo espacios horizontales
+        text = re.sub(r'\n{3,}', '\n\n', text)  # Máximo 2 saltos de línea
+        
+        return text.strip()
 
     @classmethod
     def get_instance(cls,
@@ -119,8 +143,8 @@ class Chunker:
         hi_res_model_name: str = "yolox",
         element_exclude: Optional[list] = None,
         extract_image_block_types: Optional[list] = None,
-        chunking_strategy: str = "by_title",
-        max_characters: int = 1200,
+        chunking_strategy: str = "basic",
+        max_characters: int = 800,
         split_pdf_page: bool = True,
         split_pdf_allow_failed: bool = True,
         split_pdf_concurrency_level: int = 15,
