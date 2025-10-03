@@ -1,14 +1,20 @@
+# Dockerfile.dev
 FROM node:20-alpine
 
+# Crear carpeta de la app
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci --silent
+# Copiar package.json y yarn.lock para instalar dependencias
+COPY package.json yarn.lock ./
 
+# Instalar dependencias dentro del contenedor
+RUN yarn install
+
+# Copiar todo el código
 COPY . .
 
-EXPOSE 3000
+# Exponer el puerto de Vite
+EXPOSE 5173
 
-ENV HOST=0.0.0.0
-
-CMD ["npm", "start"]
+# Comando de desarrollo
+CMD ["yarn", "dev", "--host"]

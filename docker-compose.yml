@@ -1,14 +1,23 @@
 services:
   # Database services
   
-  mongodb:
-    image: mongo:7.0
-    container_name: drchat-mongodb
+  postgres:
+    image: postgres:17-alpine
+    container_name: drchat-postgres
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=drchat
+      - POSTGRES_USER=app
+      - POSTGRES_PASSWORD=secret
     volumes:
-      - mongodb_data:/data/db
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d drchat"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - drchat-network
 
@@ -24,9 +33,15 @@ services:
       - NEO4J_PLUGINS=["apoc"]
       - NEO4J_dbms_security_procedures_unrestricted=apoc.*
       - NEO4J_dbms_security_procedures_allowlist=apoc.*
+      - NEO4J_apoc_export_file_enabled=true
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "password", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - drchat-network
 
@@ -50,7 +65,13 @@ services:
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - drchat-network
 
@@ -61,6 +82,11 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     networks:
       - drchat-network
 
@@ -74,15 +100,16 @@ services:
       - "8001:8000"  
     env_file:
       - ./.env
-      - ./backend/ingestion/file-service/.env
     environment:
       - STORAGE_DIR=/app/storage
     volumes:
       - ./storage:/app/storage
     restart: unless-stopped
     depends_on:
-      - mongodb
-      - kafka
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     networks:
       - drchat-network
   
@@ -92,51 +119,76 @@ services:
       dockerfile: Dockerfile
     env_file:
       - ./.env
-      - ./backend/pipeline/document-processor-worker/.env
     volumes:
       - ./storage:/app/storage
     depends_on:
-      - kafka
-      - neo4j
+      kafka:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
     networks:
       - drchat-network
     restart: unless-stopped
 
-  # entity-relation-extractor-worker:
-  #   build:
-  #     context: ./backend/pipeline/entity-relation-extractor-worker
-  #     dockerfile: Dockerfile
-  #   env_file:
-  #     - ./backend/.env
+  chat-history-service:
+    build:
+      context: ./backend/user/chat-history-service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8000"
+    env_file:
+      - ./.env
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    networks:
+      - drchat-network
+    restart: unless-stopped
 
-  # chat-service:
-  #   build:
-  #     context: ./backend/user/chat-service
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8002:8000"
-  #   env_file:
-  #     - ./backend/.env
+  chat-service:
+    build:
+      context: ./backend/user/chat-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    env_file:
+      - ./.env
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      document-processor-worker:
+        condition: service_started
+    networks:
+      - drchat-network
+    restart: unless-stopped
 
-  # retriever-service:
-  #   build:
-  #     context: ./backend/user/retriever-service
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8003:8000"
-  #   env_file:
-  #     - ./backend/.env
+  user-service:
+    build:
+      context: ./backend/user/user-service
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8000"
+    env_file:
+      - ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - drchat-network
+    restart: unless-stopped
 
   # Frontend service
 
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "5000:3000"
-  #   networks:
-  #     - drchat-network
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:5173"
+    env_file:
+      - ./frontend/.env
+    networks:
+      - drchat-network
 
 # Networks
 networks:
@@ -145,7 +197,7 @@ networks:
 
 # Volumes
 volumes:
-  mongodb_data:
+  postgres_data:
     driver: local
   neo4j_data:
     driver: local

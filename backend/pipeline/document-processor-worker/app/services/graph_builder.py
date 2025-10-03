@@ -42,10 +42,10 @@ class GraphBuilder:
 WITH apoc.convert.fromJsonList($json) AS maps
 UNWIND maps AS map
 WITH apoc.map.clean(map,[],["  ",""]) AS m
-MERGE (d:Document {name: m.metadata.original_filename})
+MERGE (d:Document {name: m.metadata.original_filename, session_id: COALESCE(m.metadata.session_id, "global")})
 SET d.session_id = COALESCE(m.metadata.session_id, "global")
 WITH m, d
-CREATE (n:Chunk {id: m.element_id})
+MERGE (n:Chunk {id: m.element_id})
 SET
   n.type = "NarrativeText",
   n.text = m.text,
@@ -57,39 +57,59 @@ SET
   n.tokens = m.tokens,
   n.embedding = m.embedding,
   n.session_id = COALESCE(m.metadata.session_id, "global")
-CREATE (n)-[:PART_OF_DOCUMENT]->(d)
+MERGE (n)-[:PART_OF_DOCUMENT]->(d)
 WITH m, d, n
 WHERE m.metadata.type IN ['Image', 'Table']
-CREATE (i:$(m.metadata.type) {id: m.element_id})
-SET i.type = m.metadata.type,
-    i.figure_caption = m.metadata.figure_caption,
-    i.text = m.metadata.text,
-    i.filename = m.metadata.original_filename,
-    i.filetype = m.metadata.filetype,
-    i.languages = m.metadata.languages,
-    i.page_number = m.metadata.page_number,
-    i.image_base64 = m.metadata.image_base64,
-    i.image_mime_type = m.metadata.image_mime_type,
-    i.text_as_html = m.metadata.text_as_html,
-    i.session_id = COALESCE(m.metadata.session_id, "global")
+CALL apoc.merge.node([m.metadata.type], {id: m.element_id}, 
+  {type: m.metadata.type,
+   figure_caption: m.metadata.figure_caption,
+   text: m.metadata.text,
+   filename: m.metadata.original_filename,
+   filetype: m.metadata.filetype,
+   languages: m.metadata.languages,
+   page_number: m.metadata.page_number,
+   image_base64: m.metadata.image_base64,
+   image_mime_type: m.metadata.image_mime_type,
+   text_as_html: m.metadata.text_as_html,
+   session_id: COALESCE(m.metadata.session_id, "global")}, 
+  {}) YIELD node as i
+WITH m, d, n, i
 MERGE (n)-[:RELATED_CONTENT]->(i)
 MERGE (i)-[:PART_OF_DOCUMENT]->(d)
+
+// --- Entidades ---
 WITH m, n
 UNWIND m.entities AS e
-MERGE (ent:Entity {text: e.text, label: e.label})
-SET ent.confidence = e.confidence,
-    ent.start = e.start,
-    ent.end = e.end,
-    ent.id = e.id
+CALL apoc.merge.node([e.label], {canonical_text: e.canonical_text}, 
+  {text: e.text,
+   confidence: e.confidence,
+   start: e.start,
+   end: e.end,
+   id: e.id,
+   label: e.label}, 
+  {confidence: CASE 
+                 WHEN coalesce(e.confidence,0) > coalesce({confidence: e.confidence}.confidence,0) 
+                 THEN e.confidence 
+                 ELSE {confidence: e.confidence}.confidence 
+               END}) YIELD node as ent
+WITH m, n, ent
 MERGE (n)-[:MENTIONS]->(ent)
+
+// --- Relaciones ---
 WITH m, n
 WHERE size(m.relationships) > 0
 UNWIND m.relationships AS r
-MATCH (source:Entity) WHERE source.text = r.source
-MATCH (target:Entity) WHERE target.text = r.target
-MERGE (source)-[rel:RELATES_TO {id: r.id}]->(target)
-SET rel.type = r.type,
-    rel.confidence = r.confidence
+// USAR OPTIONAL MATCH PARA EVITAR ERRORES SI NO EXISTEN
+OPTIONAL MATCH (source {canonical_text: r.source})
+OPTIONAL MATCH (target {canonical_text: r.target})
+WITH m, n, r, source, target
+WHERE source IS NOT NULL AND target IS NOT NULL  // SOLO SI AMBOS EXISTEN
+CALL apoc.merge.relationship(source, r.type, {id: r.id}, 
+  {confidence: r.confidence}, 
+  target, 
+  {confidence: CASE WHEN coalesce(r.confidence,0) > coalesce({confidence: r.confidence}.confidence,0) THEN r.confidence ELSE {confidence: r.confidence}.confidence END}) 
+YIELD rel
+RETURN count(rel) as relationships_created
 '''
 
     NEXT_CHUNK_QUERY = '''
@@ -98,7 +118,7 @@ WHERE n.session_id = coalesce($session_id, "global") AND n.chunk_number IS NOT N
 WITH d, n
 ORDER BY toInteger(n.chunk_number)
 WITH d, collect(n) AS nodes
-CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
+CALL apoc.nodes.link(nodes, "NEXT_CHUNK", {avoidDuplicates: true})
 '''
 
     _instance = None
@@ -204,15 +224,19 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
 
     def _run_query(self, tx, query, json_data):
         return tx.run(query, {"json": json_data}).consume()
-    
+
     def _run_query_next_chunk_rel(self, tx, query, filename, session_id):
         return tx.run(query, {"filename": filename, "session_id": session_id}).consume()
 
     def _load_graph(self, json_data, filename, session_id):
-        with self.driver.session() as session:
+        with self.driver.driver.session() as session:
             summary_chunks = session.execute_write(self._run_query, self.CHUNK_QUERY, json_data)
             summary_next = session.execute_write(self._run_query_next_chunk_rel, self.NEXT_CHUNK_QUERY, filename, session_id)
-            logger.info(f"nodes created => {summary_chunks.counters.nodes_created}, rels created => {summary_chunks.counters.relationships_created + summary_next.counters.relationships_created}")
+
+            logger.info(
+                f"nodes created => {summary_chunks.counters.nodes_created}, "
+                f"rels created => {summary_chunks.counters.relationships_created + summary_next.counters.relationships_created}"
+            )
 
     def _extract_orig_elements(self, encoded):
         decoded = base64.b64decode(encoded)
@@ -221,7 +245,7 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
 
     def _create_vector_indexes(self):
         create_vector_index(
-            self.driver,
+            self.driver.driver,
             VECTOR_INDEX_NAME,
             label="Chunk",
             embedding_property="embedding",
@@ -229,17 +253,28 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK")
             similarity_fn="cosine",
             fail_if_exists=False,
         )
-        # Por ahora es solo busqueda semantica, no hibrida. 
-        # No se esta usando este index fulltext
-        """
-        create_fulltext_index(
-            self.driver,
-            FULLTEXT_INDEX_NAME,
-            label="Entity",
-            node_properties= ["text", "variants"],
-            fail_if_exists=False,
-        )
-        """
+
+        # Constraint para evitar duplicados de entidades
+        with self.driver.driver.session() as session:
+            try:
+                session.run("""
+                CREATE CONSTRAINT entity_id_unique IF NOT EXISTS
+                FOR (e:Entity)
+                REQUIRE e.id IS UNIQUE
+                """)
+                logger.info("Constraint entity_id_unique creada")
+            except Exception as e:
+                logger.warning(f"No se pudo crear constraint entity_id_unique: {e}")
+
+            try:
+                session.run("""
+                CREATE CONSTRAINT chunk_id_unique IF NOT EXISTS
+                FOR (c:Chunk)
+                REQUIRE c.id IS UNIQUE
+                """)
+                logger.info("Constraint chunk_id_unique creada")
+            except Exception as e:
+                logger.warning(f"No se pudo crear constraint chunk_id_unique: {e}")
 
     @classmethod
     def get_instance(cls, driver, embedder, entity_relationship_extractor=None):

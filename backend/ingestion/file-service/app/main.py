@@ -1,9 +1,13 @@
+from dotenv import load_dotenv
+load_dotenv()  # Load variables from .env for local/dev runs
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from core.config import settings
 from core.logging import setup_logging
+from core.database import DataBase, engine
 from api import router
 from services import kafka_service
 
@@ -12,7 +16,8 @@ setup_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup - Create database tables
+    DataBase.metadata.create_all(bind=engine)
     yield
     # Shutdown
     kafka_service.close()

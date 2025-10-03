@@ -3,8 +3,13 @@ from neo4j_graphrag.message_history import MessageHistory
 from typing import Optional, Callable, Any
 from neo4j_graphrag.retrievers.base import Retriever
 from langchain.prompts import PromptTemplate
-from neo4j_graphrag.types import RetrieverResult, RetrieverResultItem, LLMMessage
+from neo4j_graphrag.types import RetrieverResult, RetrieverResultItem
+from app.services.chat_history import LLMMessage
 from app.services.rag_result import RagResult
+from app.services.chat_history import ChatMessageHistory
+import logging
+
+logger = logging.getLogger(__name__)
 class GraphRAGPipeline:
     """
     GraphRAGPipeline orchestrates a Retrieval-Augmented Generation (RAG) workflow. 
@@ -18,7 +23,7 @@ class GraphRAGPipeline:
         result_formatter: Optional function to format retriever results.
         history: Stores the conversation history for context.
     Methods:
-        __init__(llm, retriever, prompt_template=None, default_response="No relevant information found.", 
+        __init__(llm, retriever, prompt_template=None, default_response="No se encontró información relevante.", 
                  result_formatter=None, history=None):
             Initializes the pipeline with the LLM, retriever, prompt template, default response, 
             optional result formatter, and message history.
@@ -34,7 +39,7 @@ class GraphRAGPipeline:
     # Fijarse cual es la mejor manera de formatear el contexto para que el LLM lo entienda y lo use de la mejor manera posible.
     TEMPLATE = PromptTemplate.from_template(
         template="""
-You are a medical assistant specialized in systemic lupus erythematosus (SLE).
+You are a medical assistant specialized in Covid 19.
 Always:
 - Provide a concise, structured answer
 - Use the retrieved context to support your response
@@ -59,10 +64,10 @@ Answer:
         self,
         llm: ChatOpenAI,
         retriever: Retriever,
+        history: ChatMessageHistory,
         prompt_template: PromptTemplate = None,
-        default_response: str = "No relevant information found.",
+        default_response: str = "No se encontró información relevante.",
         result_formatter: Optional[Callable[[Any], RetrieverResultItem]] = None,
-        history: Optional[MessageHistory] = None,
     ):
         self.llm = llm
         self.retriever = retriever
@@ -75,17 +80,43 @@ Answer:
         self,
         query_text: str,
         session_id: Optional[str] = None,
+        created_at: Optional[str] = None,
         retriever_config: Optional[dict] = None,
     ) -> RagResult:
+        
+        self.history.add_message(LLMMessage(role="user", content=query_text), session_id, created_at)
+
         retriever_config = retriever_config or {}
-        retriever_result: RetrieverResult = self.retriever.search(
-            query_text=query_text,
-            **retriever_config
-        )
+        filters = {
+            "session_id": {
+                "$eq": session_id
+            }
+        }
+        
+        try:
+            retriever_result: RetrieverResult = self.retriever.search(
+                query_text=query_text,
+                filters=filters,
+                **retriever_config
+            )
+        except Exception as e:
+            logger.error(f"Error during retrieval: {e}")
+            raise
+            
         if len(retriever_result.items) == 0:
+            logger.warning(f"No relevant documents found for query")
+            
+            created_at = None
+            if self.history:
+                created_at = self.history.add_message(
+                    LLMMessage(role="ai", content=self.default_response),
+                    session_id,
+                )
+
             return RagResult(
                 answer=self.default_response,
-                retriever_result=retriever_result
+                retriever_result=retriever_result,
+                created_at=created_at,
             )
         context_formatted = "\n\n"
         for item in retriever_result.items:
@@ -94,13 +125,12 @@ Answer:
             context_formatted += "========================================================\n"
 
         if self.history:
-            messages = self.history.messages
+            messages = self.history.messages(session_id)
             formatted_history = ""
             for msg in messages:
-                # Aceptamos tanto LLMMessage como dict
-                role = msg["role"]
-                content = msg["content"]
-                formatted_history += f"{role}: {content}\n"
+                formatted_history += f"{msg['role']}: {msg['content']}\n"
+            if formatted_history == "":
+                formatted_history = "No previous messages."
 
         prompt = self.prompt_template.format(
             query_text=query_text,
@@ -108,21 +138,14 @@ Answer:
             message_history=formatted_history,
         )
 
-        print("===== Prompt enviado al LLM =====")
-        print(prompt)
-        print("=================================")
-
         llm_response = self.llm.invoke(prompt)
 
-        self.history.add_message(LLMMessage(role="user", content=query_text))
-        self.history.add_message(LLMMessage(role="assistant", content=llm_response.content))
-        print(f"Answer: {llm_response.content}")
+        created_at = self.history.add_message(LLMMessage(role="ai", content=llm_response.content), session_id)
 
         return RagResult(
             answer=llm_response.content,
-            retriever_result=retriever_result
+            retriever_result=retriever_result,
+            created_at=created_at
         )
-
-
 
 

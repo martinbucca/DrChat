@@ -172,3 +172,20 @@ google-cloud-cli-linux-x86_64.tar.gz
 .vennv
 newenv
 files
+*.pdf
+
+
+# Frontend 
+
+
+frontend/.env
+frontend/dist/
+frontend/node_modules/
+frontend/package-lock.json
+data/
+frontend/yarn.lock
+frontend/.npmrc
+/fronted/yarn.lock
+
+# service account firebase
+firebase-sa.json

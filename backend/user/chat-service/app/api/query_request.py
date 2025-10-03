@@ -10,3 +10,4 @@ class QueryRequest(BaseModel):
     """
     query: str
     session_id: str = None
+    created_at: str = None
