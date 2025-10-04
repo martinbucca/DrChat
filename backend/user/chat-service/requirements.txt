@@ -10,3 +10,4 @@ neo4j-graphrag
 pydantic
 langchain-experimental
 transformers
+psycopg[binary]==3.1.19
