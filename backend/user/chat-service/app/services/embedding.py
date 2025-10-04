@@ -1,4 +1,4 @@
-from app.config import AZURE_OPENAI_API_KEY, AZURE_OPENAI_API_VERSION, AZURE_OPENAI_EMBEDDINGS_MODEL, AZURE_OPENAI_ENDPOINT
+from app.config.config import AZURE_OPENAI_EMBEDDINGS_MODEL
 from langchain_openai import AzureOpenAIEmbeddings
 
 class Embedding:

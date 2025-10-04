@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from app.api.query_request import QueryRequest
+from app.api.requests.query_request import QueryRequest
 from app.services.chat_history import LLMMessage
 import logging
 

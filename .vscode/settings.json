@@ -1,5 +1,6 @@
 {
     "python.analysis.extraPaths": [
-        "./backend/ingestion/file-service/app"
+        "./backend/ingestion/file-service/app",
+        "./backend/user/chat-service"
     ]
 }
