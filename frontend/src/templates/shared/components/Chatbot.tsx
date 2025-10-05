@@ -38,7 +38,7 @@ import {
 import { PiGraphBold } from 'react-icons/pi';
 
 import RetrievalInformation from './RetrievalInformation';
-import { useChatSession, ChatMessage } from '../../../context/ChatSessionContext';
+import { useChatSession, ChatMessage, ChatSession } from '../../../context/ChatSessionContext';
 import axios from 'axios';
 
 // ---------------------------------------------
@@ -181,7 +181,9 @@ async function chatBotAPI(question: string, sessionId?: string, createdAt?: stri
   }
 }
 
-async function sendFeedback(messageId: number, like: boolean) {
+
+
+async function sendFeedback(messageId: number, currentSession: ChatSession,  like: boolean) {
   console.log("Sending feedback");
   console.log("CHAT_SERVICE_URL:", CHAT_SERVICE_URL);
   
@@ -189,11 +191,20 @@ async function sendFeedback(messageId: number, like: boolean) {
     console.log("No CHAT_SERVICE_URL configured, skipping feedback");
     return;
   }
-  
+  console.log(currentSession)
+  const messages = currentSession.messages;
+  const index = messages.findIndex(m => m.id === messageId);
+
+  const currentMessage = messages[index];
+  const previousMessage = messages[index - 1];
+
+
   const url = `${CHAT_SERVICE_URL}/feedback`;
   const payload = {
-    message_id: messageId,
     like,
+    question: previousMessage.message,
+    response: currentMessage.message,
+    session_id: currentSession.id,
   };
   
   console.log("Sending feedback to URL:", url);
@@ -1271,7 +1282,7 @@ export default function Chatbot(props: ChatbotProps) {
                           <IconButton
                             isClean
                             ariaLabel='Like'
-                            onClick={() => sendFeedback(chat.id, true)}
+                            onClick={() => sendFeedback(chat.id, currentSession, true)}
                             isDisabled={isLoading || chat.isTyping}
                           >
                             <HandThumbUpIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
@@ -1282,7 +1293,7 @@ export default function Chatbot(props: ChatbotProps) {
                           <IconButton
                             isClean
                             ariaLabel='Dislike'
-                            onClick={() => sendFeedback(chat.id, false)}
+                            onClick={() => sendFeedback(chat.id,currentSession, false)}
                             isDisabled={isLoading || chat.isTyping}
                           >
                             <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
