@@ -46,7 +46,7 @@ api_instance = API.get_instance()
 app = api_instance.app
 
 qa_endpoint = AnswerQuestionEndpoint(app, graphrag)
-feedback_endpoint = FeedbackEndpoint(app)
+feedback_endpoint = FeedbackEndpoint(app, driver)
 
 
 @app.on_event("shutdown")

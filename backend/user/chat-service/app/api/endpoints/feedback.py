@@ -9,31 +9,47 @@ import logging
 logger = logging.getLogger(__name__)
 
 class FeedbackEndpoint:
-    def __init__(self, app):
+    def __init__(self, app, neo4j_driver):
         self.app = app
+        self.neo4j_driver = neo4j_driver
         self._register_endpoint()
 
     def _register_endpoint(self):
         @self.app.post("/feedback")
         async def feedback(feedback: FeedbackRequest, db: Session = Depends(get_database)):
             try:
-                message_id = feedback.message_id
+                session_id = feedback.session_id
                 is_liked = feedback.like
+                question = feedback.question
+                response = feedback.response
+
+                with self.neo4j_driver.session() as session:
+                    result = session.run(
+                        "MATCH (u:User)-[:HAS_SESSION]->(s:Session {id: $session_id}) "
+                        "RETURN u.id AS user_id",
+                        session_id=session_id
+                    )
+                    record = result.single()
+                    user_id =  record["user_id"] if record else None
 
                 new_feedback = Feedback(
-                    message_id=message_id,
-                    is_liked=is_liked,
+                    session_id = session_id,
+                    is_liked = is_liked,
+                    question = question,
+                    response = response,
+                    user_id = user_id,
                 )
-                logger.error(new_feedback)
                 db.add(new_feedback)
                 db.commit()
-                logger.error("commited")
                 db.refresh(new_feedback)
                 return {
-                    "message_id": new_feedback.message_id,
+                    "session_id": new_feedback.session_id,
                     "is_liked": new_feedback.is_liked,
                     "created_at": new_feedback.created_at,
-                    "message": "Feedback agregado exitosamente"
+                    "question": new_feedback.question,
+                    "response": new_feedback.response,
+                    "user_id": new_feedback.user_id,
+                    "Score": "Feedback agregado exitosamente"
                 }
 
             except Exception as e:
