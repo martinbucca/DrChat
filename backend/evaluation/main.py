@@ -107,14 +107,11 @@ class Neo4jHelper:
     def get_node_by_id(self, node_id):
         query = f"MATCH (n) WHERE elementId(n) = \"{node_id}\" RETURN n" 
         with self.driver.session() as session:
-            print(f"\nquery {query}")
             result = session.run(query)
             record = result.single()
-            print(f"\nrecord:{record}")
-            
             if record:
-                node = record["n"]  # or record.get("n")
-                if node and node.get("text"):  # access the property inside the Node
+                node = record["n"]  
+                if node and node.get("text"): 
                     return node["text"]
             return None
 
@@ -173,12 +170,18 @@ for item in dataset:
     }
     results.append(result_entry)
 
+
 dataset_dict = {
     "user_input": [r["question"] for r in results],
     "reference": [r["ground_truth"] for r in results],
     "response": [r["new_answer"] for r in results],
     "retrieved_contexts": [r["context"] for r in results],
 }
+
+df = pd.DataFrame(dataset_dict)
+output_path = os.path.join(BASE_DIR, "results.xlsx")
+pd.DataFrame(df).to_excel(output_path, index=False)
+
 dataset = Dataset.from_dict(dataset_dict)
 result = evaluate(
     dataset = dataset, 
@@ -192,4 +195,4 @@ result = evaluate(
 
 df = result.to_pandas()
 output_path = os.path.join(BASE_DIR, "metrics.xlsx")
-pd.DataFrame(results).to_excel(output_path, index=False)
+pd.DataFrame(df).to_excel(output_path, index=False)
