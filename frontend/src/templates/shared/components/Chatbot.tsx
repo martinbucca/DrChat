@@ -716,7 +716,7 @@ export default function Chatbot(props: ChatbotProps) {
     } catch (err) {
       console.error('Error Posting the Question:', err);
       simulateTypingEffect({
-        response: 'Lo siento, hubo un problema al conectar con el servidor. Intenta nuevamente en unos segundos.',
+        response: 'Oops! Something went wrong while trying to get an answer. Please try again in a moment.',
         src: [],
       });
     } finally {
