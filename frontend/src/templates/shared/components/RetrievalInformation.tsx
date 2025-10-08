@@ -134,7 +134,7 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
             : record.labels.includes('Entity')
             ? record.properties.name
             : record.labels.includes('Chunk')
-            ? "Chunk"
+            ? "Text Section"
             : record.properties.type
 
 
@@ -162,6 +162,8 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
               from: record.start.toString(),
               to: record.end.toString(),
               captions: [{ value: record.type.toString() }],
+              width: 1.2,
+              captionSize: 1.5
             },
           ]);
         });
@@ -171,7 +173,14 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
   }
 
   return (
-    <Box className='n-bg-palette-neutral-bg-weak p-4' style={{height: '80vh'}}>
+    <Box
+      className='n-bg-palette-neutral-bg-weak p-4'
+      sx={{
+        minHeight: '150vh',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       <IconButton
         className='n-size-token-7'
         ariaLabel='Close modal'
@@ -188,7 +197,9 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
       <Flex flexDirection='row' className='flex flex-row p-6 items-center'>
         <img src={DrChatLogo} alt='icon' style={{ width: 95, height: 95, marginRight: 10 }} />
         <Box className='flex flex-col'>
-          <Typography variant='h2'>Retrieval information</Typography>
+          <Typography variant='h2'>Where This Answer Came From</Typography>
+          <Typography variant='h6'>This graph shows the information the system used to build your answer.
+            You can tap on each item to see more details about it.</Typography>
         </Box>
       </Flex>
       <Box className='button-container' sx={{ display: 'flex', justifyContent: 'space-between', mt: 2}}>
@@ -197,7 +208,7 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
             margin: 10,
             borderRadius: 25,
             border: '2px solid #2A93A0',
-            height: 'calc(80vh - 163px)',
+            height: 'calc(120vh - 163px)', 
             flexGrow: 1,
             display: 'flex',
             flexDirection: 'column',
@@ -228,9 +239,9 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
             <LoadingSpinner
               size='large'
               style={{
-                position: 'absolute',
-                top: '50%',
-                right: '50%',
+          position: 'absolute',
+          top: '50%',
+          right: '50%',
               }}
             />
           ) : (
@@ -245,7 +256,7 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
             mouseEventCallbacks={mouseEventCallbacks}
             style={{ flexGrow: 1 }}
             nvlOptions={{
-              initialZoom: 0,
+              initialZoom: 1.1,
               layout: 'd3Force',
               relationshipThreshold: 1,
               selectedBorderColor: '#F5F5F5',
@@ -258,70 +269,93 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
 
               <Drawer.Header>
 
-                <div>
-                  <Typography variant='mb-2' variant='body-medium'>Node Details</Typography>
+                <div style={{ marginBottom: '18px' }}>
+                  <Typography variant='h5' style={{ fontWeight: 700 }}>Node Details</Typography>
                 </div>
-                <div>
+                <div
+                  style={{
+                  borderRadius: '9999px',
+                  padding: '6px 12px',
+                  background: expandedNode?.color ?? '#eee',
+                  color: '#fff',
+                  display: 'inline-block',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  marginLeft: 0,
+                  marginBottom: '24px', // more space below
+                  }}
+                >
                   {expandedNode?.captions[0]?.labels?.includes('Chunk')
-                  ? (<Typography variant='h5'>Text Chunk</Typography>)
-                  : expandedNode?.captions[0]?.labels?.includes('Document')
-                  ? (<Typography variant='h5'>Document</Typography>)
-                  : expandedNode?.captions[0]?.labels?.includes('Entity')
-                  ? (<Typography variant='h5'>Entity</Typography>)
-                  : expandedNode?.captions[0]?.labels?.includes('Image')
-                  ? (<Typography variant='h5'>Image</Typography>)
-                  : expandedNode?.captions[0]?.labels?.includes('Table')
-                  ? (<Typography variant='h5'>Table</Typography>)
-                  : (<Typography variant='h5'>Other</Typography>)}
-                </div>
+                    ? 'Text Section'
+                          : expandedNode?.captions[0]?.labels?.includes('Document')
+                          ? 'Document'
+                          : expandedNode?.captions[0]?.labels?.includes('Entity')
+                          ? 'Entity'
+                          : expandedNode?.captions[0]?.labels?.includes('Image')
+                          ? 'Image'
+                          : expandedNode?.captions[0]?.labels?.includes('Table')
+                          ? 'Table'
+                          : 'Other'}
+                      </div>
               </Drawer.Header>
+              <hr style={{ margin: '12px 0' }} />
               <Drawer.Body className="max-w-[500px] pl-5">
                 {/* NarrativeText Rendering */}
                 {expandedNode?.properties?.type === 'NarrativeText' && (
                   <>
-                    <figcaption className="caption-top text-xs mb-2">Text</figcaption>
-                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                      {expandedNode.properties.text ?? expandedNode.properties.name ?? expandedNode.properties.id}
-                    </ReactMarkdown>
-                    <div style={{ height: '12px' }}></div>
-                    <figcaption className="caption-top text-xs mt-4 mb-2">Page</figcaption>
-                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                      {String(expandedNode.properties.page_number.low)}
-                    </ReactMarkdown>
+                    <div className='grid grid-cols-2 gap-9 border-b border-gray-300 py-2 text-sm'>
+                      <div className='text-gray-600 font-bold'>Text</div>
+                      <div className='text-gray-800 break-words max-h-40 overflow-auto'>
+                        <ReactMarkdown>{expandedNode.properties.text ?? expandedNode.properties.name ?? expandedNode.properties.id}</ReactMarkdown>
+                      </div>                      
+                    </div>
+                    <div className='grid grid-cols-2 gap-9 border-b border-gray-300 py-2 text-sm'>
+                      <div className='text-gray-600 font-bold'>Page</div>
+                      <div className='text-gray-800 break-words max-h-40 overflow-auto'>
+                        <ReactMarkdown>{String(expandedNode.properties.page_number)}</ReactMarkdown>
+                      </div>
+                    </div>
                   </>
                 )}
 
                 {/* Document Rendering */}
                 {expandedNode?.captions?.[0]?.labels?.includes('Document') && (
-                  <>
-                    <figcaption className="caption-top text-xs mb-2">Name</figcaption>
-                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                      {expandedNode.properties.name}
-                    </ReactMarkdown>
-                  </>
+                    <div className='grid grid-cols-2 gap-9 border-b border-gray-300 py-2 text-sm'>
+                      <div className='text-gray-600 font-bold'>Title</div>
+                      <div className='text-gray-800 break-words max-h-40 overflow-auto'>
+                        <ReactMarkdown>{expandedNode.properties.name}</ReactMarkdown>
+                      </div>
+                    </div>
                 )}
+                    
 
                 {/* Document or Entity Labels */}
                 {expandedNode?.captions?.[0]?.labels?.includes('Entity') &&  (
-                  <>
-                  <figcaption className="caption-top text-xs mb-2">Name</figcaption>
-                  <div style={{ overflowWrap: 'break-word', width: '250px' }}>
-                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                      {expandedNode.properties.name}
-                    </ReactMarkdown>
-                  </div>
-                  <div style={{ height: '12px' }}></div>
-                  <figcaption className="caption-top text-xs mb-2">Type</figcaption>
-                  <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                    {expandedNode.properties.id}
-                  </ReactMarkdown>
-                  </>
+                    <>
+                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{ width: '100px', fontWeight: 500 }}>Name</div>
+                      <div style={{ overflowWrap: 'break-word', width: '250px' }}>
+                      <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
+                        {expandedNode.properties.name}
+                      </ReactMarkdown>
+                      </div>
+                    </div>
+                    <hr style={{ margin: '8px 0' }} />
+                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{ width: '100px', fontWeight: 500 }}>Type</div>
+                      <div style={{ overflowWrap: 'break-word', width: '250px' }}>
+                      <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
+                        {expandedNode.properties.id}
+                      </ReactMarkdown>
+                      </div>
+                    </div>
+                    </>
                 )}
 
                 {/* Image Rendering */}
                 {expandedNode?.properties?.type === 'Image' && (
                   <>
-                    <figcaption className="caption-top text-xs mb-2">Image</figcaption>
+                    <div style={{ width: '100px', fontWeight: 500 }}>Image</div>
                     <img
                       src={`data:image/png;base64,${expandedNode.properties.image_base64}`}
                       alt="Preview"
@@ -331,17 +365,20 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
                 )}
                 <div style={{ height: '12px' }}></div>
                 {expandedNode?.properties?.type === 'Image' && expandedNode.properties?.text && (
-                  <>
-                    <figcaption className="caption-top text-xs mt-4 mb-2">Text</figcaption>
-                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                      {expandedNode.properties.text}
-                    </ReactMarkdown>
-                  </>
-                )}
+                    <div className='grid grid-cols-2 gap-9 border-b border-gray-300 py-2 text-sm'>
+                      <div className='text-gray-600 font-bold'>Text</div>
+                      <div className='text-gray-800 break-words max-h-40 overflow-auto'> 
+                        <ReactMarkdown>{expandedNode.properties.text}</ReactMarkdown>
+                      </div>
+                    </div>
+                )}                 
+                  
+                  
 
                 {/* Table Image */}
                 {expandedNode?.properties?.type === 'Table' && (
                   <>
+                    <div style={{ width: '100px', fontWeight: 500 }}>Table</div>
                     <img
                       src={`data:image/png;base64,${expandedNode.properties.image_base64}`}
                       alt="Preview"
