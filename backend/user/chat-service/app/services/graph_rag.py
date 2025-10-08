@@ -1,5 +1,7 @@
 from langchain_openai import ChatOpenAI
+from langchain_experimental.prompt_injection_identifier.hugging_face_identifier import HuggingFaceInjectionIdentifier, PromptInjectionException
 from neo4j_graphrag.message_history import MessageHistory
+from transfomers import Pipeline
 from typing import Optional, Callable, Any
 from neo4j_graphrag.retrievers.base import Retriever
 from langchain.prompts import PromptTemplate
@@ -66,7 +68,7 @@ Answer:
         retriever: Retriever,
         history: ChatMessageHistory,
         prompt_template: PromptTemplate = None,
-        default_response: str = "No se encontró información relevante.",
+        default_response: str = "No relevant information was found. Please make sure you have uploaded documents to the system.",
         result_formatter: Optional[Callable[[Any], RetrieverResultItem]] = None,
     ):
         self.llm = llm
@@ -75,6 +77,8 @@ Answer:
         self.default_response = default_response
         self.result_formatter = result_formatter
         self.history = history
+        HuggingFaceInjectionIdentifier.model_rebuild()
+        self.injection_identifier = HuggingFaceInjectionIdentifier()
 
     def search(
         self,
@@ -85,6 +89,21 @@ Answer:
     ) -> RagResult:
         
         self.history.add_message(LLMMessage(role="user", content=query_text), session_id, created_at)
+        if self.verifiy_prompt_injection(query_text):
+            default_response = "⚠️ For the best experience, please keep your requests aligned with the assistant’s intended scope."
+            logger.warning(f"Prompt injection detected in query: {query_text}")
+            created_at = None
+            if self.history:
+                created_at = self.history.add_message(
+                    LLMMessage(role="ai", content=default_response),
+                    session_id,
+                )
+
+            return RagResult(
+                answer=default_response,
+                retriever_result=RetrieverResult(items=[]),
+                created_at=created_at,
+            )
 
         retriever_config = retriever_config or {}
         filters = {
@@ -147,5 +166,13 @@ Answer:
             retriever_result=retriever_result,
             created_at=created_at
         )
+    
+
+    def verify_prompt_injection(self, query_text: str) -> bool:
+        try:
+            self.injection_identifier._run(query_text)
+            return False
+        except PromptInjectionException:
+            return True
 
 
