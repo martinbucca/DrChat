@@ -155,6 +155,9 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
         });
 
         result.rels.map((record: any) => {
+          if (record.type.toString() === 'NEXT_CHUNK') {
+            record.type = 'NEXT_SECTION';
+          }
           setRels((prevRels) => [
             ...prevRels,
             {
@@ -175,11 +178,7 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
   return (
     <Box
       className='n-bg-palette-neutral-bg-weak p-4'
-      sx={{
-        minHeight: '150vh',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
+      style={{ height: '120vh' }}
     >
       <IconButton
         className='n-size-token-7'
@@ -208,7 +207,7 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
             margin: 10,
             borderRadius: 25,
             border: '2px solid #2A93A0',
-            height: 'calc(120vh - 163px)', 
+            height: 'calc(110vh - 163px)', 
             flexGrow: 1,
             display: 'flex',
             flexDirection: 'column',

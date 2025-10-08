@@ -1354,7 +1354,7 @@ export default function Chatbot(props: ChatbotProps) {
         <Modal
           modalProps={{
             id: 'default-menu',
-            className: 'n-p-token-4 n-bg-palette-neutral-bg-weak n-rounded-lg min-w-[60%] max-h-[80%]',
+            className: 'n-p-token-4 n-bg-palette-neutral-bg-weak n-rounded-lg min-w-[60%] max-h-[160%]',
           }}
           onClose={handleCloseModal}
           isOpen={isOpenModal}
