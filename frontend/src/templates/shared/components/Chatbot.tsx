@@ -1350,23 +1350,27 @@ export default function Chatbot(props: ChatbotProps) {
             </Button>
           </form>
         </div>
-
-        <Modal
-          modalProps={{
-            id: 'default-menu',
-            className: 'n-p-token-4 n-bg-palette-neutral-bg-weak n-rounded-lg min-w-[60%] max-h-[160%]',
-          }}
-          onClose={handleCloseModal}
-          isOpen={isOpenModal}
-        >
-          <RetrievalInformation
-            sources={sourcesModal}
-            model={modelModal}
-            timeTaken={timeTaken}
-            entities={entitiesModal}
+        {isOpenModal && (
+          <>
+          <div className="ndl-modal-backdrop" role="presentation" data-testid="ndl-modal-backdrop" style={{position: 'fixed', top: 0, left: 0, bottom: 0, right: 0, zIndex: 60, backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(12px)'}}></div>
+          <Modal
+            modalProps={{
+              id: 'default-menu',
+              className: 'n-p-token-4 n-bg-palette-neutral-bg-weak n-rounded-lg min-w-[60%] max-h-[160%]',
+            }}
             onClose={handleCloseModal}
-          />
-        </Modal>
+            isOpen={isOpenModal}
+          >
+            <RetrievalInformation
+              sources={sourcesModal}
+              model={modelModal}
+              timeTaken={timeTaken}
+              entities={entitiesModal}
+              onClose={handleCloseModal} />
+          </Modal>
+          </>
+        )}
+        
       </div>
     </div>
   );
