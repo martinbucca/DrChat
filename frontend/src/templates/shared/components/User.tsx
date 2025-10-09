@@ -66,7 +66,7 @@ export default function User() {
       />
       <div className='flex flex-col'>
         <Typography variant='body-medium' className='p-0.5'>
-          {user.name || user.email || 'Usuario'}
+          {user.name || user.email || 'User'}
         </Typography>
 
         <Typography variant='body-small' className='p-0.5'>

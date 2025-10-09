@@ -79,9 +79,9 @@ type UploadedFile = {
 };
 
 const FILE_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pendiente',
-  processing: 'Procesando',
-  processed: 'Procesado',
+  pending: 'Pending',
+  processing: 'Processing',
+  processed: 'Processed',
   error: 'Error',
 };
 
@@ -149,7 +149,7 @@ async function chatBotAPI(question: string, sessionId?: string, createdAt?: stri
     return {
       response: {
         answer:
-          'Hola, esta es una respuesta de ejemplo con fuentes. Para usar el chatbot, conectalo a tu backend enviando un objeto del tipo {response: string, src: Array<string>}.'
+          'Hello, this is a sample answer with sources. To use the chatbot, connect it to your backend and return an object like {response: string, src: Array<string>}.'
       ,
         created_at: new Date().toISOString(),
         retriever_result: [
@@ -238,12 +238,12 @@ export default function Chatbot(props: ChatbotProps) {
 
     hasInitialized.current = true;
     if (messages.length > 0) {
-      createNewSession('Chat de ejemplo');
+      createNewSession('Sample chat');
       messages.forEach((msg) => {
         addMessageToCurrentSession(msg as ChatMessage);
       });
     } else {
-      createNewSession('Nuevo chat');
+      createNewSession('New chat');
     }
   }, [
     isHistoryReady,
@@ -443,7 +443,7 @@ export default function Chatbot(props: ChatbotProps) {
 
         mapped.forEach((file) => startFileStatusTracking(sessionId, file.id, file.status));
       } catch (error) {
-        let message = 'No se pudieron obtener los archivos subidos.';
+        let message = 'Unable to fetch the uploaded files.';
         if (axios.isAxiosError(error)) {
           message =
             (error.response?.data as { detail?: string } | undefined)?.detail ||
@@ -494,7 +494,7 @@ export default function Chatbot(props: ChatbotProps) {
     return currentSession?.title ?? '';
   })();
 
-  const normalizedActiveTitle = activeSessionTitle.trim().length > 0 ? activeSessionTitle : 'Nuevo chat';
+  const normalizedActiveTitle = activeSessionTitle.trim().length > 0 ? activeSessionTitle : 'New chat';
 
   const handleCloseModal = () => setIsOpenModal(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -544,13 +544,13 @@ export default function Chatbot(props: ChatbotProps) {
     if (!FILE_SERVICE_BASE_URL) {
       setUploadErrorsBySession((prev) => ({
         ...prev,
-        [currentSession.id]: 'La URL del servicio de archivos no está configurada.',
+        [currentSession.id]: 'The file service URL is not configured.',
       }));
       return;
     }
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setUploadErrorsBySession((prev) => ({ ...prev, [currentSession.id]: 'Solo se aceptan archivos PDF.' }));
+      setUploadErrorsBySession((prev) => ({ ...prev, [currentSession.id]: 'Only PDF files are accepted.' }));
       return;
     }
 
@@ -589,12 +589,12 @@ export default function Chatbot(props: ChatbotProps) {
         const detail = (error.response?.data as { detail?: string })?.detail;
         setUploadErrorsBySession((prev) => ({
           ...prev,
-          [currentSession.id]: detail || error.message || 'Error subiendo el archivo.',
+          [currentSession.id]: detail || error.message || 'Error uploading the file.',
         }));
       } else if (error instanceof Error) {
         setUploadErrorsBySession((prev) => ({ ...prev, [currentSession.id]: error.message }));
       } else {
-        setUploadErrorsBySession((prev) => ({ ...prev, [currentSession.id]: 'Error subiendo el archivo.' }));
+        setUploadErrorsBySession((prev) => ({ ...prev, [currentSession.id]: 'Error uploading the file.' }));
       }
       setExpandedFilesSessions((prev) => ({ ...prev, [currentSession.id]: true }));
     } finally {
@@ -801,14 +801,14 @@ export default function Chatbot(props: ChatbotProps) {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 1) {
-      return 'Hoy';
+      return 'Today';
     }
     if (diffDays === 2) {
-      return 'Ayer';
+      return 'Yesterday';
     }
     if (diffDays < 7) {
       const elapsed = diffDays - 1;
-      return `Hace ${elapsed} día${elapsed === 1 ? '' : 's'}`;
+      return `${elapsed} day${elapsed === 1 ? '' : 's'} ago`;
     }
     return date.toLocaleDateString();
   };
@@ -833,7 +833,7 @@ export default function Chatbot(props: ChatbotProps) {
         <Drawer.Header>
           <div className='flex items-center justify-between w-full gap-2'>
             <Button color='neutral' onClick={handleNewSession} fill='outlined'>
-              <PencilSquareIconOutline className='w-4 h-4 mr-4' /> Nuevo chat
+              <PencilSquareIconOutline className='w-4 h-4 mr-4' /> New chat
             </Button>
             <Button
               color='neutral'
@@ -841,7 +841,7 @@ export default function Chatbot(props: ChatbotProps) {
               onClick={() => fileInputRef.current?.click()}
               isDisabled={uploadingSessionId === currentSession?.id || !currentSession}
             >
-              <ArrowUpTrayIconOutline className='w-4 h-4 mr-4' /> Subir archivo
+              <ArrowUpTrayIconOutline className='w-4 h-4 mr-4' /> Upload file
             </Button>
             <input
               ref={fileInputRef}
@@ -861,7 +861,7 @@ export default function Chatbot(props: ChatbotProps) {
                 onClick={() => setIsChatListOpen((prev) => !prev)}
               >
                 <Typography variant='body-medium' className='n-text-palette-neutral-text font-medium'>
-                  Conversaciones
+                  Conversations
                 </Typography>
                 {isChatListOpen ? (
                   <ChevronUpIconOutline className='w-4 h-4' />
@@ -873,10 +873,10 @@ export default function Chatbot(props: ChatbotProps) {
                 sessions.length === 0 ? (
                   <div className='flex flex-col p-4 text-center'>
                     <Typography variant='body-medium' className='n-text-palette-neutral-text-weak'>
-                      Todavía no hay chats.
+                      No chats yet.
                     </Typography>
                     <Button onClick={handleNewSession} className='mt-3' size='small'>
-                      Crear nuevo chat
+                      Create new chat
                     </Button>
                   </div>
                 ) : (
@@ -936,7 +936,7 @@ export default function Chatbot(props: ChatbotProps) {
                                   {session.title}
                                 </Typography>
                                 <Typography variant='body-small' className='n-text-palette-neutral-text-weak mt-1'>
-                                  {formatDate(session.updatedAt)} • {session.messages.length} mensajes
+                                  {formatDate(session.updatedAt)} • {session.messages.length} messages
                                 </Typography>
                               </div>
 
@@ -974,7 +974,7 @@ export default function Chatbot(props: ChatbotProps) {
                               }
                             >
                               <Typography variant='body-small' className='n-text-palette-neutral-text font-medium'>
-                                Archivos ({filesForSession.length})
+                                Files ({filesForSession.length})
                               </Typography>
                               {isFilesExpanded ? (
                                 <ChevronUpIconOutline className='w-4 h-4' />
@@ -993,7 +993,7 @@ export default function Chatbot(props: ChatbotProps) {
                               <div className='mt-1 flex items-center gap-2'>
                                 <LoadingSpinner size='small' />
                                 <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-                                  Subiendo archivo...
+                                  Uploading file...
                                 </Typography>
                               </div>
                             ) : null}
@@ -1013,7 +1013,7 @@ export default function Chatbot(props: ChatbotProps) {
                                           </Typography>
                                           <div className='mt-1 grid grid-cols-[auto,1fr] gap-x-2 gap-y-1 text-left'>
                                             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-                                              Estado:
+                                              Status:
                                             </Typography>
                                             <Typography
                                               variant='body-small'
@@ -1026,7 +1026,7 @@ export default function Chatbot(props: ChatbotProps) {
                                             </Typography>
 
                                             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-                                              Subido:
+                                              Uploaded:
                                             </Typography>
                                             <Typography variant='body-small' className='n-text-palette-neutral-text'>
                                               {new Date(file.uploadedAt).toLocaleString()}
@@ -1035,7 +1035,7 @@ export default function Chatbot(props: ChatbotProps) {
                                             {file.updatedAt && file.updatedAt !== file.uploadedAt ? (
                                               <>
                                                 <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-                                                  Actualizado:
+                                                  Updated:
                                                 </Typography>
                                                 <Typography variant='body-small' className='n-text-palette-neutral-text'>
                                                   {new Date(file.updatedAt).toLocaleString()}
@@ -1044,7 +1044,7 @@ export default function Chatbot(props: ChatbotProps) {
                                             ) : null}
 
                                             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-                                              Tamaño:
+                                              Size:
                                             </Typography>
                                             <Typography variant='body-small' className='n-text-palette-neutral-text'>
                                               {(file.size / 1024).toFixed(1)} KB
@@ -1058,7 +1058,7 @@ export default function Chatbot(props: ChatbotProps) {
                               ) : (
                                 !isSessionUploading && !sessionError ? (
                                   <Typography variant='body-small' className='mt-2 n-text-palette-neutral-text-weak'>
-                                    Aún no subiste archivos para este chat.
+                                    You have not uploaded files for this chat yet.
                                   </Typography>
                                 ) : null
                               )
@@ -1101,7 +1101,7 @@ export default function Chatbot(props: ChatbotProps) {
               {normalizedActiveTitle}
             </Typography>
             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-              {(currentSession?.messages?.length || 0)} mensajes
+              {(currentSession?.messages?.length || 0)} messages
             </Typography>
           </div>
         </div>
@@ -1273,7 +1273,7 @@ export default function Chatbot(props: ChatbotProps) {
                 <Widget header='' isElevated={true} className='p-4 self-start max-w-[55%] n-bg-palette-neutral-bg-weak'>
                   <div className='flex items-center gap-2'>
                     <LoadingSpinner size='small' />
-                    <Typography variant='body-medium'>Pensando...</Typography>
+                    <Typography variant='body-medium'>Thinking...</Typography>
                   </div>
                 </Widget>
               </div>
@@ -1310,7 +1310,7 @@ export default function Chatbot(props: ChatbotProps) {
                     </ReactMarkdown>
                   </div>
                   <div className='text-right align-bottom pt-3'>
-                    <Typography variant='body-small'>Escribiendo...</Typography>
+                    <Typography variant='body-small'>Typing...</Typography>
                   </div>
                 </Widget>
               </div>
@@ -1335,12 +1335,12 @@ export default function Chatbot(props: ChatbotProps) {
               onFocus={(event) => adjustTextareaHeight(event.currentTarget)}
               rows={1}
               className='flex-1 w-full max-h-48 min-h-[48px] resize-none rounded-xl border border-[rgb(var(--theme-palette-neutral-border-weak))] bg-[rgb(var(--theme-palette-neutral-bg-weak))] px-4 py-3 text-base text-[rgb(var(--theme-palette-neutral-text))] shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--theme-palette-primary-border))] transition-all'
-              placeholder='Escribe tu mensaje...'
-              aria-label='Mensaje para el chatbot'
+              placeholder='Type your message...'
+              aria-label='Message for the chatbot'
             />
             <Button
               type='submit'
-              aria-label='Enviar mensaje'
+              aria-label='Send message'
               color='primary'
               fill='solid'
               isDisabled={!inputMessage.trim() || isLoading}

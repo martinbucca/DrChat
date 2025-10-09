@@ -63,7 +63,7 @@ export default function Login() {
         const res = await axios.post(url, payload);
         console.log("Registration successful:", res.data);
         localStorage.setItem('user', JSON.stringify(res.data));
-        setFeedback({ type: 'success', message: 'Usuario registrado' });
+        setFeedback({ type: 'success', message: 'User registered successfully.' });
         setTimeout(() => {
           navigate('/', { replace: true });
         }, 1000);
@@ -94,12 +94,12 @@ export default function Login() {
         const detail = err.response?.data as { detail?: string } | undefined;
 
         if (mode === 'register' && status === 400) {
-          setFeedback({ type: 'error', message: 'El correo ya se encuentra registrado.' });
+          setFeedback({ type: 'error', message: 'This email is already registered.' });
           return;
         }
 
         if (mode === 'login' && status === 401) {
-          setFeedback({ type: 'error', message: 'Contraseña incorrecta.' });
+          setFeedback({ type: 'error', message: 'Incorrect password.' });
           return;
         }
 
@@ -109,7 +109,7 @@ export default function Login() {
         }
       }
 
-      setFeedback({ type: 'error', message: 'No pudimos completar la autenticación. Intenta nuevamente.' });
+      setFeedback({ type: 'error', message: 'We could not complete the authentication. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -125,9 +125,9 @@ export default function Login() {
             <div className="hidden lg:flex items-center justify-center p-12 bg-neutral-100 dark:bg-neutral-800">
               <div className="flex flex-col items-center text-center text-neutral-800 dark:text-neutral-100">
                 <div className="rounded-2xl bg-white/70 dark:bg-white/10 backdrop-blur p-6 shadow-lg">
-                  <img src={DrChatLogo} alt="DrChat" className="h-20 w-20 object-contain" />
+                  <img src={DrChatLogo} alt="DrChat" className="h-32 w-32 object-contain" />
                 </div>
-                <h2 className="mt-8 text-3xl font-semibold">DrChat: de documentos a respuestas</h2>
+                <h2 className="mt-8 text-3xl font-semibold">DrChat: from documents to answers</h2>
               </div>
             </div>
 
@@ -142,8 +142,8 @@ export default function Login() {
                     value={mode}
                     onChange={(val) => setMode(val as 'login' | 'register')}
                   >
-                    <Tabs.Tab tabId="login">Iniciar sesión</Tabs.Tab>
-                    <Tabs.Tab tabId="register">Registrarse</Tabs.Tab>
+                    <Tabs.Tab tabId="login">Log in</Tabs.Tab>
+                    <Tabs.Tab tabId="register">Sign up</Tabs.Tab>
                   </Tabs>
                 </div>
 
@@ -164,7 +164,7 @@ export default function Login() {
                   {mode === 'register' && (
                     <>
                       <div>
-                        <label className="mb-1 block text-sm text-neutral-300">Nombre</label>
+                        <label className="mb-1 block text-sm text-neutral-300">Name</label>
                         <input
                           type="text"
                           value={name}
@@ -172,14 +172,14 @@ export default function Login() {
                             setName(e.target.value);
                             setFeedback(null);
                           }}
-                          placeholder="Tu nombre"
+                          placeholder="Your name"
                           required
                           className="block w-full rounded-md border border-neutral-500/40 bg-transparent px-4 py-3 text-white placeholder-neutral-400 outline-none focus:ring-2 focus:ring-cyan-400"
                         />
                       </div>
 
                       <div>
-                        <label className="mb-1 block text-sm text-neutral-300">Profesión</label>
+                        <label className="mb-1 block text-sm text-neutral-300">Profession</label>
                         <select
                           value={profession}
                           onChange={(e) => {
@@ -189,14 +189,14 @@ export default function Login() {
                           required
                           className="block w-full rounded-md border border-neutral-500/40 bg-transparent px-4 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-400"
                         >
-                          <option value="" className="text-black">Seleccioná tu profesión</option>
-                          <option value="medicina" className="text-black">Médica/o</option>
-                          <option value="enfermeria" className="text-black">Enfermera/o</option>
-                          <option value="kinesiologia" className="text-black">Kinesióloga/o</option>
-                          <option value="nutricion" className="text-black">Nutricionista</option>
-                          <option value="farmacia" className="text-black">Farmacéutica/o</option>
-                          <option value="estudiante" className="text-black">Estudiante</option>
-                          <option value="otro" className="text-black">Otro</option>
+                          <option value="" className="text-black">Select your profession</option>
+                          <option value="medicina" className="text-black">Doctor</option>
+                          <option value="enfermeria" className="text-black">Nurse</option>
+                          <option value="kinesiologia" className="text-black">Physical therapist</option>
+                          <option value="nutricion" className="text-black">Nutritionist</option>
+                          <option value="farmacia" className="text-black">Pharmacist</option>
+                          <option value="estudiante" className="text-black">Student</option>
+                          <option value="otro" className="text-black">Other</option>
                         </select>
                       </div>
                     </>
@@ -218,7 +218,7 @@ export default function Login() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm text-neutral-300">Contraseña</label>
+                    <label className="mb-1 block text-sm text-neutral-300">Password</label>
                     <input
                       type="password"
                       value={password}
@@ -237,7 +237,7 @@ export default function Login() {
                     className="w-full !bg-cyan-400 !text-black hover:!bg-cyan-300"
                     isDisabled={isSubmitting}
                   >
-                    {mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+                    {mode === 'login' ? 'Log in' : 'Create account'}
                   </Button>
                 </form>
               </div>
