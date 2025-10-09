@@ -106,7 +106,7 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
     WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
     RETURN DISTINCT a,r,b
     UNION
-    MATCH (a:Chunk)-[r:MENTIONS]-(b:Entity)
+    MATCH (a:Chunk)-[r:MENTIONS]-(b)
     WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
     RETURN DISTINCT a,r,b
     UNION
@@ -135,14 +135,18 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
             ? record.properties.name
             : record.labels.includes('Chunk')
             ? "Text Section"
-            : record.properties.type
+            : record.labels.includes('Image')
+            ? "Image"
+            : record.labels.includes('Table')
+            ? "Table"
+            : record.properties.text ?? record.labels[0];
 
 
           const color = record.labels.includes('Chunk')
             ? '#0A6190'
             : record.labels.includes('Document')
             ? '#BCF194'
-            : record.labels.includes('Entity')
+            : record.labels.includes('Table')
             ? '#B38EFF'
             : record.labels.includes('Image')
             ? '#FFC300'
@@ -288,13 +292,12 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
                     ? 'Text Section'
                           : expandedNode?.captions[0]?.labels?.includes('Document')
                           ? 'Document'
-                          : expandedNode?.captions[0]?.labels?.includes('Entity')
-                          ? 'Entity'
                           : expandedNode?.captions[0]?.labels?.includes('Image')
                           ? 'Image'
                           : expandedNode?.captions[0]?.labels?.includes('Table')
                           ? 'Table'
-                          : 'Other'}
+                          : expandedNode?.captions[0]?.labels[0]}
+                          
                       </div>
               </Drawer.Header>
               <hr style={{ margin: '12px 0' }} />
@@ -328,27 +331,27 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
                 )}
                     
 
-                {/* Document or Entity Labels */}
-                {expandedNode?.captions?.[0]?.labels?.includes('Entity') &&  (
-                    <>
-                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '8px' }}>
-                      <div style={{ width: '100px', fontWeight: 500 }}>Name</div>
-                      <div style={{ overflowWrap: 'break-word', width: '250px' }}>
-                      <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                        {expandedNode.properties.name}
-                      </ReactMarkdown>
-                      </div>
+                {/* Entity Labels */}
+                {!expandedNode?.captions?.[0]?.labels?.some(label => ['Document', 'Chunk', 'Image', 'Table'].includes(label)) && (
+                  <>
+                  <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ width: '100px', fontWeight: 500 }}>Text</div>
+                    <div style={{ overflowWrap: 'break-word', width: '250px' }}>
+                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
+                      {expandedNode?.properties?.text}
+                    </ReactMarkdown>
                     </div>
-                    <hr style={{ margin: '8px 0' }} />
-                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '8px' }}>
-                      <div style={{ width: '100px', fontWeight: 500 }}>Type</div>
-                      <div style={{ overflowWrap: 'break-word', width: '250px' }}>
-                      <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
-                        {expandedNode.properties.id}
-                      </ReactMarkdown>
-                      </div>
+                  </div>
+                  <hr style={{ margin: '8px 0' }} />
+                  <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ width: '100px', fontWeight: 500 }}>Type</div>
+                    <div style={{ overflowWrap: 'break-word', width: '250px' }}>
+                    <ReactMarkdown className="max-w-[250px] object-top overflow-auto">
+                      {expandedNode?.captions[0]?.labels[0]}
+                    </ReactMarkdown>
                     </div>
-                    </>
+                  </div>
+                  </>
                 )}
 
                 {/* Image Rendering */}
