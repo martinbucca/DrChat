@@ -132,5 +132,38 @@ def login(body: LoginRequest, db: Session = Depends(get_database)):
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not user.email_verified:
+        try:
+            fb_user = fb_auth.get_user_by_email(body.email)
+        except fb_auth.UserNotFoundError:
+            raise HTTPException(
+                status_code=403,
+                detail="Email not verified. Please confirm the verification link sent to your inbox.",
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Unable to validate email verification status: {exc}",
+            )
+
+        if not fb_user.email_verified:
+            raise HTTPException(
+                status_code=403,
+                detail="Email not verified. Please confirm the verification link sent to your inbox.",
+            )
+
+        try:
+            user.email_verified = True
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        except Exception:
+            db.rollback()
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to update verification status. Please try again later.",
+            )
+
     token = f"token-{user.email}"
     return {"id": user.user_id, "name": user.name, "email": user.email, "token": token}

@@ -62,11 +62,11 @@ export default function Login() {
         
         const res = await axios.post(url, payload);
         console.log("Registration successful:", res.data);
-        localStorage.setItem('user', JSON.stringify(res.data));
-        setFeedback({ type: 'success', message: 'User registered successfully.' });
-        setTimeout(() => {
-          navigate('/', { replace: true });
-        }, 1000);
+        setFeedback({
+          type: 'success',
+          message: 'Account created. Please verify your email before logging in.',
+        });
+        setPassword('');
         return;
       }
 
@@ -100,6 +100,14 @@ export default function Login() {
 
         if (mode === 'login' && status === 401) {
           setFeedback({ type: 'error', message: 'Incorrect password.' });
+          return;
+        }
+
+        if (mode === 'login' && status === 403) {
+          setFeedback({
+            type: 'error',
+            message: detail?.detail || 'Please verify your email before logging in.',
+          });
           return;
         }
 
