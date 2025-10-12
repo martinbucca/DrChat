@@ -1,17 +1,13 @@
+import json
 import os
+import re
 import time
 import uuid
 from neo4j import GraphDatabase
+from openpyxl import Workbook, load_workbook
 import requests
 import pandas as pd
-from ragas import evaluate
-from ragas.metrics import (
-    faithfulness,
-    answer_relevancy,
-    context_recall,
-    context_precision,
-)
-from datasets import Dataset
+from llm import LLM 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FILE_SERVICE_BASE_URL = "http://localhost:8001"
@@ -21,6 +17,9 @@ ANSWER_QUESTION = "http://localhost:8002/answer_question"
 VITE_NEO4J_URI="bolt://localhost:7687"
 VITE_NEO4J_USERNAME="neo4j"
 VITE_NEO4J_PASSWORD="password"
+os.environ["OPENAI_API_KEY"] = "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"
+llm_instance = LLM.get_instance()
+llm = llm_instance.llm
 
 
 payload_register = {
@@ -170,29 +169,56 @@ for item in dataset:
     }
     results.append(result_entry)
 
+wb = Workbook()
+ws = wb.active
+ws.append(["user_input","reference","response","retrieved_contexts","relevance","correctness","fluency","context_relevance"])
+for result in results:
+    query = result["question"]
+    generated = result["new_answer"]
+    reference = result["ground_truth"]
+    context_raw = result["context"]
+    if isinstance(context_raw, list):
+        if not context_raw:  
+            context_value = "None"
+        else:  
+            context_value = "\n".join(item.replace("\n", " ") for item in context_raw)
+    else:
+        context_value = str(context_raw).replace("\n", " ")
+    prompt = f"""
+    You are an evaluator. Rate the generated answer based on the query.
 
-dataset_dict = {
-    "user_input": [r["question"] for r in results],
-    "reference": [r["ground_truth"] for r in results],
-    "response": [r["new_answer"] for r in results],
-    "retrieved_contexts": [r["context"] for r in results],
-}
+    Query: {query}
+    Generated answer: {generated}
+    Reference answer: {reference if reference else 'N/A'}
+    Retrived context:{context_value}
 
-df = pd.DataFrame(dataset_dict)
-output_path = os.path.join(BASE_DIR, "results.xlsx")
-pd.DataFrame(df).to_excel(output_path, index=False)
+    Provide a JSON with scores between 0 and 1 for:
+    - relevance: how relevant the answer is to the query
+    - correctness: how factually correct the answer is
+    - fluency: how well-written the answer is
+    - context relevance: how relevant is the context retrieved
+    """
+    llm_response = llm.invoke(prompt)
+    llm_response_content = llm_response.content
+    match = re.search(
+        r"```(?:json)?\s*(\{.*?\})\s*```",
+        llm_response_content,
+        re.DOTALL | re.IGNORECASE
+    )
+    data = None
+    if match:
+        json_str = match.group(1)
+        try:
+            data = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON format: {e}")
+    else:
+        print("No JSON found in response.")
+    relevance          = data.get("relevance", 0.0)          if data else 0.0
+    correctness        = data.get("correctness", 0.0)        if data else 0.0
+    fluency            = data.get("fluency", 0.0)            if data else 0.0
+    context_relevance  = data.get("context_relevance", 0.0)  if data else 0.0
+    ws.append([query,reference,generated,context_value,relevance,correctness,fluency,context_relevance])
 
-dataset = Dataset.from_dict(dataset_dict)
-result = evaluate(
-    dataset = dataset, 
-    metrics=[
-        context_precision,
-        context_recall,
-        faithfulness,
-        answer_relevancy,
-    ],
-)
-
-df = result.to_pandas()
 output_path = os.path.join(BASE_DIR, "metrics.xlsx")
-pd.DataFrame(df).to_excel(output_path, index=False)
+wb.save(output_path)
