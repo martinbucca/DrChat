@@ -15,3 +15,4 @@ class FeedbackRequest(BaseModel):
     session_id: str
     question: Optional[str] = None
     response: Optional[str] = None
+    message_id: str
