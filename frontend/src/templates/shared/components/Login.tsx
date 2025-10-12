@@ -74,7 +74,7 @@ export default function Login() {
       console.log("Logging in user at URL:", url);
       const payload = { email, password };
       console.log("Login payload:", { email, password: "***" });
-      
+
       const res = await axios.post(url, payload);
       console.log("Login successful:", res.data);
       localStorage.setItem('user', JSON.stringify(res.data));
@@ -98,16 +98,21 @@ export default function Login() {
           return;
         }
 
-        if (mode === 'login' && status === 401) {
-          setFeedback({ type: 'error', message: 'Incorrect password.' });
-          return;
-        }
-
         if (mode === 'login' && status === 403) {
           setFeedback({
             type: 'error',
             message: detail?.detail || 'Please verify your email before logging in.',
           });
+          return;
+        }
+
+        if (mode === 'login' && status === 404) {
+          setFeedback({ type: 'error', message: 'Email not registered.' });
+          return;
+        }
+
+        if (mode === 'login' && status === 401) {
+          setFeedback({ type: 'error', message: 'Incorrect password.' });
           return;
         }
 

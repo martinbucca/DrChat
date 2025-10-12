@@ -26,7 +26,6 @@ def _firebase_send_verification_email(email: str, raw_password: str):
     Crea/sincroniza usuario en Firebase Auth con mismo email/password y pide a Firebase
     que envíe el correo de verificación (sendOobCode VERIFY_EMAIL).
     """
-    # 1) Crear o asegurar usuario en Firebase Auth
     try:
         try:
             fb_user = fb_auth.get_user_by_email(email)
@@ -130,7 +129,10 @@ def register(body: RegisterRequest, db: Session = Depends(get_database)):
 @router.post("/login", response_model=AuthResponse)
 def login(body: LoginRequest, db: Session = Depends(get_database)):
     user = db.query(User).filter(User.email == body.email).first()
-    if not user or not verify_password(body.password, user.password):
+    if not user:
+        raise HTTPException(status_code=404, detail="Email not registered")
+
+    if not verify_password(body.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.email_verified:
