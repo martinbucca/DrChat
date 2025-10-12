@@ -1,7 +1,7 @@
 # DrChat - Makefile para gestionar diferentes configuraciones de Docker Compose
 # Descripción: Comandos para levantar el proyecto con diferentes configuraciones de bases de datos
 
-.PHONY: help up up-external-neo4j up-external-postgres up-external down logs build status
+.PHONY: help up up-external-neo4j up-external-postgres up-external down logs build status evaluation
 
 # Comando por defecto - mostrar ayuda
 help:
@@ -18,6 +18,7 @@ help:
 	@echo "  status              - Ver estado de contenedores"
 	@echo "  logs                - Ver logs de file-service y document-processor-worker"
 	@echo "  build               - Construir todas las imágenes"
+	@echo "  evaluation          - Evaluar el pipeline completo"
 	@echo ""
 
 # Comandos para levantar servicios
@@ -58,3 +59,8 @@ build:
 status:
 	@echo "Estado de los contenedores de DrChat..."
 	docker compose ps
+
+# Evaluación
+evaluation:
+	@echo "Evaluando el desempeño de DrChat..."
+	python backend/evaluation/main.py

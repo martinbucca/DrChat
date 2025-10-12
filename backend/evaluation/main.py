@@ -21,8 +21,6 @@ payload_register = {
     "profesion": "estudiante"
 }
 response = requests.post(REGISTER_URL, json=payload_register)
-print("Status Code:", response.status_code)
-print("Response JSON:", response.json())
 
 
 payload_session = {
@@ -31,8 +29,6 @@ payload_session = {
     "session_name": "Test Chat"
 }
 response = requests.post(SESSION_URL, json=payload_session)
-print("Status Code:", response.status_code)
-print("Response JSON:", response.json())
 session_id = response.json()["session_id"]
 
 def upload_file(path, session_id):
@@ -72,8 +68,8 @@ def wait_for_processing(file_ids, interval=20):
                 continue
             try:
                 status = get_file_status(fid)
-                print(f"File {fid}: {status}")
                 if status == "processed":
+                    print(f"File {fid}: {status}")
                     processed.add(fid)
                 elif status == "error":
                     print(f"File {fid} failed to process. Stopping.")
@@ -135,7 +131,6 @@ for item in dataset:
     question = item.get("Question")
     ground_truth = item.get("Answer")
 
-    print(f"\nAsking chatbot: {question}")
     resp = query_chatbot(question, session_id)
     if not resp:
         continue
@@ -214,3 +209,19 @@ for result in results:
 
 output_path = os.path.join(FILES_DIR, "metrics.xlsx")
 wb.save(output_path)
+
+total_queries = len(results)
+if total_queries > 0:
+    avg_relevance = sum(ws.cell(row=i, column=5).value for i in range(2, total_queries+2)) / total_queries
+    avg_correctness = sum(ws.cell(row=i, column=6).value for i in range(2, total_queries+2)) / total_queries
+    avg_fluency = sum(ws.cell(row=i, column=7).value for i in range(2, total_queries+2)) / total_queries
+    avg_context_relevance = sum(ws.cell(row=i, column=8).value for i in range(2, total_queries+2)) / total_queries
+else:
+    avg_relevance = avg_correctness = avg_fluency = avg_context_relevance = 0.0
+
+print(f"Queries done: {total_queries}")
+print(f"Avg relevance: {avg_relevance:.3f}")
+print(f"Avg correctness: {avg_correctness:.3f}")
+print(f"Avg fluency: {avg_fluency:.3f}")
+print(f"Avg context relevance: {avg_context_relevance:.3f}")
+
