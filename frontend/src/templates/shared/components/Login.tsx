@@ -24,7 +24,7 @@ export default function Login() {
 
   useEffect(() => {
     const user = localStorage.getItem('user');
-    if (user) navigate('/', { replace: true });
+    if (user) navigate('/conversations', { replace: true });
   }, [navigate]);
 
   useEffect(() => {
@@ -79,8 +79,8 @@ export default function Login() {
       console.log("Login successful:", res.data);
       localStorage.setItem('user', JSON.stringify(res.data));
 
-      console.log("Redirecting to home...");
-      navigate('/', { replace: true });
+      console.log("Redirecting to conversations...");
+      navigate('/conversations', { replace: true });
     } catch (err) {
       console.error('Auth error:', err);
       console.error('Error details:', {

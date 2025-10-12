@@ -26,6 +26,7 @@ def _firebase_send_verification_email(email: str, raw_password: str):
     Crea/sincroniza usuario en Firebase Auth con mismo email/password y pide a Firebase
     que envíe el correo de verificación (sendOobCode VERIFY_EMAIL).
     """
+    # 1) Crear o asegurar usuario en Firebase Auth
     try:
         try:
             fb_user = fb_auth.get_user_by_email(email)
