@@ -1,5 +1,7 @@
 from langchain_openai import ChatOpenAI
 
+from config import LLM_CHAT_MODEL, GROQ_API_BASE
+
 class LLM:
     """
     A singleton class for managing a generic Large Language Model (LLM) instance.
@@ -23,9 +25,9 @@ class LLM:
 
     def __init__(self, model_params, api_key):
         self._llm = ChatOpenAI(
-            model_name="meta-llama/llama-4-scout-17b-16e-instruct",
+            model_name=LLM_CHAT_MODEL,
             temperature=0,
-            openai_api_base="https://api.groq.com/openai/v1"
+            openai_api_base= GROQ_API_BASE
         )
 
     @classmethod
