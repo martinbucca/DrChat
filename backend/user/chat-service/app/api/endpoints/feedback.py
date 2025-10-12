@@ -22,6 +22,7 @@ class FeedbackEndpoint:
                 is_liked = feedback.like
                 question = feedback.question
                 response = feedback.response
+                message_id = feedback.message_id
 
                 with self.neo4j_driver.session() as session:
                     result = session.run(
@@ -38,6 +39,7 @@ class FeedbackEndpoint:
                     question = question,
                     response = response,
                     user_id = user_id,
+                    message_id = message_id,
                 )
                 db.add(new_feedback)
                 db.commit()
@@ -49,6 +51,7 @@ class FeedbackEndpoint:
                     "question": new_feedback.question,
                     "response": new_feedback.response,
                     "user_id": new_feedback.user_id,
+                    "message_id": new_feedback.message_id,
                     "Score": "Feedback agregado exitosamente"
                 }
 

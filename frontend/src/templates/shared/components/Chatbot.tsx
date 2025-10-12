@@ -205,6 +205,7 @@ async function sendFeedback(messageId: number, currentSession: ChatSession,  lik
     question: previousMessage.message,
     response: currentMessage.message,
     session_id: currentSession.id,
+    message_id: String(messageId),
   };
   
   console.log("Sending feedback to URL:", url);
