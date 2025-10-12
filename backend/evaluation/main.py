@@ -4,20 +4,12 @@ import re
 import time
 import uuid
 from neo4j import GraphDatabase
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
 import requests
 import pandas as pd
+from config import ANSWER_QUESTION, FILE_SERVICE_BASE_URL, FILES_DIR, NEO4J_PASSWORD, NEO4J_URI, NEO4J_USERNAME, REGISTER_URL, SESSION_URL
 from llm import LLM 
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FILE_SERVICE_BASE_URL = "http://localhost:8001"
-REGISTER_URL = "http://localhost:8004/api/register"
-SESSION_URL = "http://localhost:8003/session"
-ANSWER_QUESTION = "http://localhost:8002/answer_question"
-VITE_NEO4J_URI="bolt://localhost:7687"
-VITE_NEO4J_USERNAME="neo4j"
-VITE_NEO4J_PASSWORD="password"
-os.environ["OPENAI_API_KEY"] = "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"
 llm_instance = LLM.get_instance()
 llm = llm_instance.llm
 
@@ -57,8 +49,8 @@ def upload_file(path, session_id):
 
 
 file_paths = [
-    os.path.join(BASE_DIR, "covid-19.pdf"),
-    os.path.join(BASE_DIR, "regeneration.pdf")
+    os.path.join(FILES_DIR, "covid-19.pdf"),
+    os.path.join(FILES_DIR, "regeneration.pdf")
 ]
 
 file_ids = [upload_file(p, session_id) for p in file_paths]
@@ -114,7 +106,7 @@ class Neo4jHelper:
                     return node["text"]
             return None
 
-neo4j_helper = Neo4jHelper(VITE_NEO4J_URI, VITE_NEO4J_USERNAME, VITE_NEO4J_PASSWORD)
+neo4j_helper = Neo4jHelper(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
 
 # ==================== QUERY ====================
 def query_chatbot(question, session_id):
@@ -133,7 +125,7 @@ def query_chatbot(question, session_id):
 # ===============================================
 
 
-file_path = os.path.join(BASE_DIR, "questions_answers.xlsx")
+file_path = os.path.join(FILES_DIR, "questions_answers.xlsx")
 df = pd.read_excel(file_path)
 dataset = df.to_dict(orient="records")
 
@@ -220,5 +212,5 @@ for result in results:
     context_relevance  = data.get("context_relevance", 0.0)  if data else 0.0
     ws.append([query,reference,generated,context_value,relevance,correctness,fluency,context_relevance])
 
-output_path = os.path.join(BASE_DIR, "metrics.xlsx")
+output_path = os.path.join(FILES_DIR, "metrics.xlsx")
 wb.save(output_path)
