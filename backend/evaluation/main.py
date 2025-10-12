@@ -45,8 +45,9 @@ def upload_file(path, session_id):
 
 
 file_paths = [
-    os.path.join(FILES_DIR, "covid-19.pdf"),
-    os.path.join(FILES_DIR, "regeneration.pdf")
+    os.path.join(FILES_DIR, f)
+    for f in os.listdir(FILES_DIR)
+    if f.lower().endswith(".pdf")
 ]
 
 file_ids = [upload_file(p, session_id) for p in file_paths]
