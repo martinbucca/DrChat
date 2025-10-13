@@ -19,10 +19,6 @@ class CreateSessionEndpoint:
                 session_name = request.session_name
 
                 with self.neo4j_driver.session() as session:
-
-
-                    
-
                     # Check if session with the same session_id already exists
                     result = session.run(
                         "MATCH (s:Session {id: $session_id}) RETURN s",
