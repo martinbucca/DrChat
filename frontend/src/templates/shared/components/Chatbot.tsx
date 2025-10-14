@@ -1316,6 +1316,22 @@ export default function Chatbot(props: ChatbotProps) {
                         </div>
                           <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Dislike</span>
                         </div>
+                        <IconButton
+                          isClean
+                          ariaLabel='Like'
+                          onClick={() => sendFeedback(chat.id, currentSession, true)}
+                          isDisabled={isLoading || chat.isTyping}
+                        >
+                          <HandThumbUpIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
+                        </IconButton>
+                        <IconButton
+                          isClean
+                          ariaLabel='Dislike'
+                          onClick={() => sendFeedback(chat.id,currentSession, false)}
+                          isDisabled={isLoading || chat.isTyping}
+                        >
+                          <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
+                        </IconButton>
                       </div>
                     ) : (
                       <></>

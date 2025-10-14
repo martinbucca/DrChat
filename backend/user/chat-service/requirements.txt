@@ -8,6 +8,7 @@ langchain
 langchain-openai
 neo4j-graphrag
 pydantic
+psycopg[binary]==3.1.19
 langchain-experimental
 transformers
 psycopg[binary]==3.1.19
