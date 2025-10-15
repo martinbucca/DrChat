@@ -170,6 +170,11 @@ services:
       - "8004:8000"
     env_file:
       - ./.env
+    environment:
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      GOOGLE_CLOUD_PROJECT: ${FIREBASE_PROJECT_ID}
+    volumes:
+      - ./backend/user/user-service/secrets/firebase-sa.json:/run/secrets/firebase-sa.json:ro
     depends_on:
       postgres:
         condition: service_healthy
