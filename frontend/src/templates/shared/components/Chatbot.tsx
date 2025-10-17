@@ -556,6 +556,20 @@ export default function Chatbot(props: ChatbotProps) {
     }
   }, [currentSession?.id, expandedFilesSessions, uploadedFilesBySession]);
 
+  useEffect(() => {
+    if (!isOpenModal) {
+      return;
+    }
+
+    const internalBackdrop = document.querySelector(
+      '.ndl-modal-backdrop'
+    ) as HTMLElement | null;
+    
+    if (internalBackdrop) {
+      internalBackdrop.style.position = 'fixed';
+    }
+  }, [isOpenModal]);
+
   const handleFileInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -1391,23 +1405,27 @@ export default function Chatbot(props: ChatbotProps) {
             </Button>
           </form>
         </div>
-
-        <Modal
-          modalProps={{
-            id: 'default-menu',
-            className: 'n-p-token-4 n-bg-palette-neutral-bg-weak n-rounded-lg min-w-[60%] max-h-[80%]',
-          }}
-          onClose={handleCloseModal}
-          isOpen={isOpenModal}
-        >
-          <RetrievalInformation
-            sources={sourcesModal}
-            model={modelModal}
-            timeTaken={timeTaken}
-            entities={entitiesModal}
+        {isOpenModal && (
+          <>
+          
+          <Modal
+            modalProps={{
+              id: 'default-menu',
+              className: 'n-p-token-4 n-bg-palette-neutral-bg-weak n-rounded-lg min-w-[60%] max-h-[160%]',
+            }}
             onClose={handleCloseModal}
-          />
-        </Modal>
+            isOpen={isOpenModal}
+          >
+            <RetrievalInformation
+              sources={sourcesModal}
+              model={modelModal}
+              timeTaken={timeTaken}
+              entities={entitiesModal}
+              onClose={handleCloseModal} />
+          </Modal>
+          </>
+        )}
+        
       </div>
     </div>
   );
