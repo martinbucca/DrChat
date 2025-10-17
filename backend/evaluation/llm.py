@@ -1,5 +1,6 @@
 from langchain_openai import ChatOpenAI
-from app.config.config import LLM_CHAT_MODEL, GROQ_API_BASE
+
+from config import LLM_CHAT_MODEL, GROQ_API_BASE
 
 class LLM:
     """
@@ -26,7 +27,7 @@ class LLM:
         self._llm = ChatOpenAI(
             model_name=LLM_CHAT_MODEL,
             temperature=0,
-            openai_api_base=GROQ_API_BASE
+            openai_api_base= GROQ_API_BASE
         )
 
     @classmethod

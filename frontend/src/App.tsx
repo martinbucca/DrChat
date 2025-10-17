@@ -50,6 +50,15 @@ function App() {
             path='/'
             element={
               <RequireAuth>
+                <Navigate to='/conversations' replace />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path='/conversations'
+            element={
+              <RequireAuth>
                 <Dashboard />
               </RequireAuth>
             }

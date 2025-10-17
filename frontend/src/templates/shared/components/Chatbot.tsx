@@ -17,10 +17,8 @@ import {
 
 import ChatBotAvatar from '../assets/chatbot-ai.png';
 import {
-  ArrowPathIconOutline,
   ClipboardDocumentIconOutline,
   HandThumbDownIconOutline,
-  InformationCircleIconOutline,
   SpeakerWaveIconOutline,
   PencilSquareIconOutline,
   ArrowUpTrayIconOutline,
@@ -39,7 +37,7 @@ import {
 import { PiGraphBold } from 'react-icons/pi';
 
 import RetrievalInformation from './RetrievalInformation';
-import { useChatSession, ChatMessage } from '../../../context/ChatSessionContext';
+import { useChatSession, ChatMessage, ChatSession } from '../../../context/ChatSessionContext';
 import axios from 'axios';
 
 // ---------------------------------------------
@@ -79,9 +77,9 @@ type UploadedFile = {
 };
 
 const FILE_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pendiente',
-  processing: 'Procesando',
-  processed: 'Procesado',
+  pending: 'Pending',
+  processing: 'Processing',
+  processed: 'Processed',
   error: 'Error',
 };
 
@@ -149,7 +147,7 @@ async function chatBotAPI(question: string, sessionId?: string, createdAt?: stri
     return {
       response: {
         answer:
-          'Hola, esta es una respuesta de ejemplo con fuentes. Para usar el chatbot, conectalo a tu backend enviando un objeto del tipo {response: string, src: Array<string>}.'
+          'Hello, this is a sample answer with sources. To use the chatbot, connect it to your backend and return an object like {response: string, src: Array<string>}.'
       ,
         created_at: new Date().toISOString(),
         retriever_result: [
@@ -182,7 +180,9 @@ async function chatBotAPI(question: string, sessionId?: string, createdAt?: stri
   }
 }
 
-async function sendFeedback(messageId: number, like: boolean) {
+
+
+async function sendFeedback(messageId: number, currentSession: ChatSession,  like: boolean) {
   console.log("Sending feedback");
   console.log("CHAT_SERVICE_URL:", CHAT_SERVICE_URL);
   
@@ -190,11 +190,21 @@ async function sendFeedback(messageId: number, like: boolean) {
     console.log("No CHAT_SERVICE_URL configured, skipping feedback");
     return;
   }
-  
+  console.log(currentSession)
+  const messages = currentSession.messages;
+  const index = messages.findIndex(m => m.id === messageId);
+
+  const currentMessage = messages[index];
+  const previousMessage = messages[index - 1];
+
+
   const url = `${CHAT_SERVICE_URL}/feedback`;
   const payload = {
-    message_id: messageId,
     like,
+    question: previousMessage.message,
+    response: currentMessage.message,
+    session_id: currentSession.id,
+    message_id: String(messageId),
   };
   
   console.log("Sending feedback to URL:", url);
@@ -238,12 +248,12 @@ export default function Chatbot(props: ChatbotProps) {
 
     hasInitialized.current = true;
     if (messages.length > 0) {
-      createNewSession('Chat de ejemplo');
+      createNewSession('Sample chat');
       messages.forEach((msg) => {
         addMessageToCurrentSession(msg as ChatMessage);
       });
     } else {
-      createNewSession('Nuevo chat');
+      createNewSession('New chat');
     }
   }, [
     isHistoryReady,
@@ -268,9 +278,11 @@ export default function Chatbot(props: ChatbotProps) {
   const [uploadErrorsBySession, setUploadErrorsBySession] = useState<Record<string, string | null>>({});
   const [uploadingSessionId, setUploadingSessionId] = useState<string | null>(null);
   const [expandedFilesSessions, setExpandedFilesSessions] = useState<Record<string, boolean>>({});
+  const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
 
   const fileStatusPollers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const fetchedSessionFilesRef = useRef<Set<string>>(new Set());
+  const copyFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearFileStatusTracker = useCallback((fileId: string) => {
     const timeoutId = fileStatusPollers.current.get(fileId);
@@ -401,6 +413,22 @@ export default function Chatbot(props: ChatbotProps) {
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     Object.entries(uploadedFilesBySession).forEach(([sessionId, files]) => {
       files.forEach((file) => {
         startFileStatusTracking(sessionId, file.id, file.status);
@@ -443,7 +471,7 @@ export default function Chatbot(props: ChatbotProps) {
 
         mapped.forEach((file) => startFileStatusTracking(sessionId, file.id, file.status));
       } catch (error) {
-        let message = 'No se pudieron obtener los archivos subidos.';
+        let message = 'Unable to fetch the uploaded files.';
         if (axios.isAxiosError(error)) {
           message =
             (error.response?.data as { detail?: string } | undefined)?.detail ||
@@ -494,7 +522,7 @@ export default function Chatbot(props: ChatbotProps) {
     return currentSession?.title ?? '';
   })();
 
-  const normalizedActiveTitle = activeSessionTitle.trim().length > 0 ? activeSessionTitle : 'Nuevo chat';
+  const normalizedActiveTitle = activeSessionTitle.trim().length > 0 ? activeSessionTitle : 'New chat';
 
   const handleCloseModal = () => setIsOpenModal(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -558,13 +586,13 @@ export default function Chatbot(props: ChatbotProps) {
     if (!FILE_SERVICE_BASE_URL) {
       setUploadErrorsBySession((prev) => ({
         ...prev,
-        [currentSession.id]: 'La URL del servicio de archivos no está configurada.',
+        [currentSession.id]: 'The file service URL is not configured.',
       }));
       return;
     }
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setUploadErrorsBySession((prev) => ({ ...prev, [currentSession.id]: 'Solo se aceptan archivos PDF.' }));
+      setUploadErrorsBySession((prev) => ({ ...prev, [currentSession.id]: 'Only PDF files are accepted.' }));
       return;
     }
 
@@ -603,12 +631,12 @@ export default function Chatbot(props: ChatbotProps) {
         const detail = (error.response?.data as { detail?: string })?.detail;
         setUploadErrorsBySession((prev) => ({
           ...prev,
-          [currentSession.id]: detail || error.message || 'Error subiendo el archivo.',
+          [currentSession.id]: detail || error.message || 'Error uploading the file.',
         }));
       } else if (error instanceof Error) {
         setUploadErrorsBySession((prev) => ({ ...prev, [currentSession.id]: error.message }));
       } else {
-        setUploadErrorsBySession((prev) => ({ ...prev, [currentSession.id]: 'Error subiendo el archivo.' }));
+        setUploadErrorsBySession((prev) => ({ ...prev, [currentSession.id]: 'Error uploading the file.' }));
       }
       setExpandedFilesSessions((prev) => ({ ...prev, [currentSession.id]: true }));
     } finally {
@@ -730,7 +758,7 @@ export default function Chatbot(props: ChatbotProps) {
     } catch (err) {
       console.error('Error Posting the Question:', err);
       simulateTypingEffect({
-        response: 'Lo siento, hubo un problema al conectar con el servidor. Intenta nuevamente en unos segundos.',
+        response: 'Oops! Something went wrong while trying to get an answer. Please try again in a moment.',
         src: [],
       });
     } finally {
@@ -815,14 +843,14 @@ export default function Chatbot(props: ChatbotProps) {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 1) {
-      return 'Hoy';
+      return 'Today';
     }
     if (diffDays === 2) {
-      return 'Ayer';
+      return 'Yesterday';
     }
     if (diffDays < 7) {
       const elapsed = diffDays - 1;
-      return `Hace ${elapsed} día${elapsed === 1 ? '' : 's'}`;
+      return `${elapsed} day${elapsed === 1 ? '' : 's'} ago`;
     }
     return date.toLocaleDateString();
   };
@@ -847,7 +875,7 @@ export default function Chatbot(props: ChatbotProps) {
         <Drawer.Header>
           <div className='flex items-center justify-between w-full gap-2'>
             <Button color='neutral' onClick={handleNewSession} fill='outlined'>
-              <PencilSquareIconOutline className='w-4 h-4 mr-4' /> Nuevo chat
+              <PencilSquareIconOutline className='w-4 h-4 mr-4' /> New chat
             </Button>
             <Button
               color='neutral'
@@ -855,7 +883,7 @@ export default function Chatbot(props: ChatbotProps) {
               onClick={() => fileInputRef.current?.click()}
               isDisabled={uploadingSessionId === currentSession?.id || !currentSession}
             >
-              <ArrowUpTrayIconOutline className='w-4 h-4 mr-4' /> Subir archivo
+              <ArrowUpTrayIconOutline className='w-4 h-4 mr-4' /> Upload file
             </Button>
             <input
               ref={fileInputRef}
@@ -875,7 +903,7 @@ export default function Chatbot(props: ChatbotProps) {
                 onClick={() => setIsChatListOpen((prev) => !prev)}
               >
                 <Typography variant='body-medium' className='n-text-palette-neutral-text font-medium'>
-                  Conversaciones
+                  Conversations
                 </Typography>
                 {isChatListOpen ? (
                   <ChevronUpIconOutline className='w-4 h-4' />
@@ -887,10 +915,10 @@ export default function Chatbot(props: ChatbotProps) {
                 sessions.length === 0 ? (
                   <div className='flex flex-col p-4 text-center'>
                     <Typography variant='body-medium' className='n-text-palette-neutral-text-weak'>
-                      Todavía no hay chats.
+                      No chats yet.
                     </Typography>
                     <Button onClick={handleNewSession} className='mt-3' size='small'>
-                      Crear nuevo chat
+                      Create new chat
                     </Button>
                   </div>
                 ) : (
@@ -950,7 +978,7 @@ export default function Chatbot(props: ChatbotProps) {
                                   {session.title}
                                 </Typography>
                                 <Typography variant='body-small' className='n-text-palette-neutral-text-weak mt-1'>
-                                  {formatDate(session.updatedAt)} • {session.messages.length} mensajes
+                                  {formatDate(session.updatedAt)} • {session.messages.length} messages
                                 </Typography>
                               </div>
 
@@ -988,7 +1016,7 @@ export default function Chatbot(props: ChatbotProps) {
                               }
                             >
                               <Typography variant='body-small' className='n-text-palette-neutral-text font-medium'>
-                                Archivos ({filesForSession.length})
+                                Files ({filesForSession.length})
                               </Typography>
                               {isFilesExpanded ? (
                                 <ChevronUpIconOutline className='w-4 h-4' />
@@ -1007,7 +1035,7 @@ export default function Chatbot(props: ChatbotProps) {
                               <div className='mt-1 flex items-center gap-2'>
                                 <LoadingSpinner size='small' />
                                 <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-                                  Subiendo archivo...
+                                  Uploading file...
                                 </Typography>
                               </div>
                             ) : null}
@@ -1027,7 +1055,7 @@ export default function Chatbot(props: ChatbotProps) {
                                           </Typography>
                                           <div className='mt-1 grid grid-cols-[auto,1fr] gap-x-2 gap-y-1 text-left'>
                                             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-                                              Estado:
+                                              Status:
                                             </Typography>
                                             <Typography
                                               variant='body-small'
@@ -1040,7 +1068,7 @@ export default function Chatbot(props: ChatbotProps) {
                                             </Typography>
 
                                             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-                                              Subido:
+                                              Uploaded:
                                             </Typography>
                                             <Typography variant='body-small' className='n-text-palette-neutral-text'>
                                               {new Date(file.uploadedAt).toLocaleString()}
@@ -1049,7 +1077,7 @@ export default function Chatbot(props: ChatbotProps) {
                                             {file.updatedAt && file.updatedAt !== file.uploadedAt ? (
                                               <>
                                                 <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-                                                  Actualizado:
+                                                  Updated:
                                                 </Typography>
                                                 <Typography variant='body-small' className='n-text-palette-neutral-text'>
                                                   {new Date(file.updatedAt).toLocaleString()}
@@ -1058,7 +1086,7 @@ export default function Chatbot(props: ChatbotProps) {
                                             ) : null}
 
                                             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-                                              Tamaño:
+                                              Size:
                                             </Typography>
                                             <Typography variant='body-small' className='n-text-palette-neutral-text'>
                                               {(file.size / 1024).toFixed(1)} KB
@@ -1072,7 +1100,7 @@ export default function Chatbot(props: ChatbotProps) {
                               ) : (
                                 !isSessionUploading && !sessionError ? (
                                   <Typography variant='body-small' className='mt-2 n-text-palette-neutral-text-weak'>
-                                    Aún no subiste archivos para este chat.
+                                    You have not uploaded files for this chat yet.
                                   </Typography>
                                 ) : null
                               )
@@ -1115,7 +1143,7 @@ export default function Chatbot(props: ChatbotProps) {
               {normalizedActiveTitle}
             </Typography>
             <Typography variant='body-small' className='n-text-palette-neutral-text-weak'>
-              {(currentSession?.messages?.length || 0)} mensajes
+              {(currentSession?.messages?.length || 0)} messages
             </Typography>
           </div>
         </div>
@@ -1179,88 +1207,101 @@ export default function Chatbot(props: ChatbotProps) {
                   </div>
                   <Typography variant='body-small' className='text-right'>
                     {chat.user === 'chatbot' ? (
-                      <div className='flex gap-1'>
+                      <div className='flex flex-wrap gap-3 justify-end'>
                         {/* Audio / Voice */}
-                        <IconButton
-                          isClean
-                          ariaLabel='Read out'
-                          isDisabled={isLoading || chat.isTyping}
-                          onClick={async () => {
-                            setLoadingPlaying(true);
-                            await chatBotVoice(chat.message);
-                            setLoadingPlaying(false);
-                          }}
-                        >
-                          {loadingPlaying ? (
-                            <LoadingSpinner className='w-4 h-4 inline-block' />
-                          ) : (
-                            <SpeakerWaveIconOutline className='w-4 h-4 inline-block' />
-                          )}
-                        </IconButton>
+                        <div className='flex flex-col items-center gap-1 min-w-[56px]'>
+                          <div className='flex flex-col items-center gap-1 min-w-[56px]'>
+                          <IconButton
+                              isClean
+                              ariaLabel='Read out'
+                              isDisabled={isLoading || chat.isTyping}
+                              onClick={async () => {
+                                setLoadingPlaying(true);
+                                await chatBotVoice(chat.message);
+                                setLoadingPlaying(false);
+                              }}
+                            >
+                              {loadingPlaying ? (
+                                <LoadingSpinner className='w-4 h-4 inline-block' />
+                              ) : (
+                                <SpeakerWaveIconOutline className='w-4 h-4 inline-block' />
+                              )}
+                            </IconButton>
+                          <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Listen</span>
+                          </div>
+                        </div>
 
                         {/* Graphs / Sources modal */}
-                        {(chat.src && chat.src.length > 0) && (
-                          <IconButton
-                            isClean
-                            ariaLabel='Show graphs & sources'
-                            onClick={() => {
-                              const meta = messageMetaRef.current.get(chat.id);
-                              setModelModal(meta?.model || '');
-                              setEntitiesModal(meta?.entities || []);
-                              setTimeTaken(meta?.timeTaken || 0);
-                              setSourcesModal(chat.src ?? []);
-                              setIsOpenModal(true);
-                            }}
-                          >
-                            <PiGraphBold className='w-4 h-4 inline-block' />
-                          </IconButton>
-                        )}
-
-                        {/* Info (kept from original) */}
                         {chat.src && chat.src.length > 0 ? (
+                          <div className='flex flex-col items-center gap-1 min-w-[56px]'>
+                            <IconButton
+                              isClean
+                              ariaLabel='Show graphs & sources'
+                              onClick={() => {
+                                const meta = messageMetaRef.current.get(chat.id);
+                                setModelModal(meta?.model || '');
+                                setEntitiesModal(meta?.entities || []);
+                                setTimeTaken(meta?.timeTaken || 0);
+                                setSourcesModal(chat.src ?? []);
+                                setIsOpenModal(true);
+                              }}
+                            >
+                              <PiGraphBold className='w-4 h-4 inline-block' />
+                            </IconButton>
+                            <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Sources</span>
+                          </div>
+                        ) : null}
+                        {/* Copy */}
+                        <div className='flex flex-col items-center gap-1 min-w-[56px]'>
                           <IconButton
                             isClean
-                            ariaLabel='Info'
+                            ariaLabel='Copy'
                             onClick={() => {
-                              const meta = messageMetaRef.current.get(chat.id);
-                              setModelModal(meta?.model || '');
-                              setSourcesModal(chat.src ?? []);
-                              setTimeTaken(meta?.timeTaken || 0);
-                              setEntitiesModal(meta?.entities || []);
-                              setIsOpenModal(true);
+                              copy(chat.message);
+                              setCopiedMessageId(chat.id);
+                              if (copyFeedbackTimeoutRef.current) {
+                                clearTimeout(copyFeedbackTimeoutRef.current);
+                              }
+                              copyFeedbackTimeoutRef.current = setTimeout(() => {
+                                setCopiedMessageId((prev) => (prev === chat.id ? null : prev));
+                                copyFeedbackTimeoutRef.current = null;
+                              }, 2000);
                             }}
                           >
-                            <InformationCircleIconOutline className='w-4 h-4 inline-block' />
+                            {copiedMessageId === chat.id ? (
+                              <CheckIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
+                            ) : (
+                              <ClipboardDocumentIconOutline className='w-4 h-4 inline-block' />
+                            )}
                           </IconButton>
-                        ) : null}
-
-                        {/* Copy */}
-                        <IconButton isClean ariaLabel='Copy' onClick={() => copy(chat.message)}>
-                          <ClipboardDocumentIconOutline className='w-4 h-4 inline-block' />
-                        </IconButton>
-
-                        {/* Regenerate (kept as visual only) */}
-                        <IconButton isClean ariaLabel='Regenerate'>
-                          <ArrowPathIconOutline className='w-4 h-4 inline-block' />
-                        </IconButton>
+                          <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>
+                            {copiedMessageId === chat.id ? 'Copied' : 'Copy'}
+                          </span>
+                        </div>
 
                         {/* Like / Dislike */}
-                        <IconButton
-                          isClean
-                          ariaLabel='Like'
-                          onClick={() => sendFeedback(chat.id, true)}
-                          isDisabled={isLoading || chat.isTyping}
-                        >
-                          <HandThumbUpIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
-                        </IconButton>
-                        <IconButton
-                          isClean
-                          ariaLabel='Dislike'
-                          onClick={() => sendFeedback(chat.id, false)}
-                          isDisabled={isLoading || chat.isTyping}
-                        >
-                          <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
-                        </IconButton>
+                          <div className='flex flex-col items-center gap-1 min-w-[56px]'>
+                          <IconButton
+                              isClean
+                              ariaLabel='Like'
+                              onClick={() => sendFeedback(chat.id, currentSession, true)}
+                              isDisabled={isLoading || chat.isTyping}
+                            >
+                              <HandThumbUpIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
+                            </IconButton>
+                          <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Like</span>
+                        </div>
+                        <div className='flex flex-col items-center gap-1 min-w-[56px]'>
+                          <IconButton
+                              isClean
+                              ariaLabel='Dislike'
+                              onClick={() => sendFeedback(chat.id,currentSession, false)}
+                              isDisabled={isLoading || chat.isTyping}
+                            >
+                              <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
+                            </IconButton>
+                          <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Dislike</span>
+                          </div>
                       </div>
                     ) : (
                       <></>
@@ -1287,7 +1328,7 @@ export default function Chatbot(props: ChatbotProps) {
                 <Widget header='' isElevated={true} className='p-4 self-start max-w-[55%] n-bg-palette-neutral-bg-weak'>
                   <div className='flex items-center gap-2'>
                     <LoadingSpinner size='small' />
-                    <Typography variant='body-medium'>Pensando...</Typography>
+                    <Typography variant='body-medium'>Thinking...</Typography>
                   </div>
                 </Widget>
               </div>
@@ -1324,7 +1365,7 @@ export default function Chatbot(props: ChatbotProps) {
                     </ReactMarkdown>
                   </div>
                   <div className='text-right align-bottom pt-3'>
-                    <Typography variant='body-small'>Escribiendo...</Typography>
+                    <Typography variant='body-small'>Typing...</Typography>
                   </div>
                 </Widget>
               </div>
@@ -1349,12 +1390,12 @@ export default function Chatbot(props: ChatbotProps) {
               onFocus={(event) => adjustTextareaHeight(event.currentTarget)}
               rows={1}
               className='flex-1 w-full max-h-48 min-h-[48px] resize-none rounded-xl border border-[rgb(var(--theme-palette-neutral-border-weak))] bg-[rgb(var(--theme-palette-neutral-bg-weak))] px-4 py-3 text-base text-[rgb(var(--theme-palette-neutral-text))] shadow-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--theme-palette-primary-border))] transition-all'
-              placeholder='Escribe tu mensaje...'
-              aria-label='Mensaje para el chatbot'
+              placeholder='Type your message...'
+              aria-label='Message for the chatbot'
             />
             <Button
               type='submit'
-              aria-label='Enviar mensaje'
+              aria-label='Send message'
               color='primary'
               fill='solid'
               isDisabled={!inputMessage.trim() || isLoading}

@@ -120,7 +120,7 @@ const mapBackendSession = (session: BackendSession): ChatSession => {
 
   return {
     id: session.session_id,
-    title: session.session_name || 'Nuevo chat',
+    title: session.session_name || 'New chat',
     createdAt: createdAtIso,
     updatedAt: lastMessageIso,
     messages,
@@ -269,7 +269,7 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   }, [currentSessionId, sessions]);
 
   const createNewSession = useCallback(
-    (title = 'Nuevo chat') => {
+    (title = 'New chat') => {
       const now = new Date().toISOString();
       const sessionId = generateSessionId();
       const newSession: ChatSession = {
@@ -355,7 +355,7 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
         const sessionId = generateSessionId();
         const newSession: ChatSession = {
           id: sessionId,
-          title: 'Nuevo chat',
+          title: 'New chat',
           createdAt: now,
           updatedAt: now,
           messages: [message],
@@ -368,7 +368,7 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
             .post(`${CHAT_HISTORY_BASE_URL}/session`, {
               user_id: userId,
               session_id: sessionId,
-              session_name: 'Nuevo chat',
+              session_name: 'New chat',
             })
             .then((response) => {
               const createdAt = isoOrNow(response.data?.created_at);

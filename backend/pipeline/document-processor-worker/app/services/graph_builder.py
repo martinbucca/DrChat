@@ -42,7 +42,7 @@ class GraphBuilder:
 WITH apoc.convert.fromJsonList($json) AS maps
 UNWIND maps AS map
 WITH apoc.map.clean(map,[],["  ",""]) AS m
-MERGE (d:Document {name: m.metadata.original_filename})
+MERGE (d:Document {name: m.metadata.original_filename, session_id: COALESCE(m.metadata.session_id, "global")})
 SET d.session_id = COALESCE(m.metadata.session_id, "global")
 WITH m, d
 MERGE (n:Chunk {id: m.element_id})
