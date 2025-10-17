@@ -528,6 +528,20 @@ export default function Chatbot(props: ChatbotProps) {
     }
   }, [currentSession?.id, expandedFilesSessions, uploadedFilesBySession]);
 
+  useEffect(() => {
+    if (!isOpenModal) {
+      return;
+    }
+
+    const internalBackdrop = document.querySelector(
+      '.ndl-modal-backdrop'
+    ) as HTMLElement | null;
+    
+    if (internalBackdrop) {
+      internalBackdrop.style.position = 'fixed';
+    }
+  }, [isOpenModal]);
+
   const handleFileInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -1352,7 +1366,7 @@ export default function Chatbot(props: ChatbotProps) {
         </div>
         {isOpenModal && (
           <>
-          <div className="ndl-modal-backdrop" role="presentation" data-testid="ndl-modal-backdrop" style={{position: 'fixed', top: 0, left: 0, bottom: 0, right: 0, zIndex: 60, backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(12px)'}}></div>
+          
           <Modal
             modalProps={{
               id: 'default-menu',
