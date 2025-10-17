@@ -1,6 +1,7 @@
 import uvicorn
 import logging
 from app.api.endpoints.feedback import FeedbackEndpoint
+from app.config.database import DataBase, engine
 from app.services.driver import Neo4jDriver
 from app.services.embedding import Embedding
 from app.services.llm import LLM
@@ -10,6 +11,8 @@ from app.services.chat_history import ChatMessageHistory
 from app.api.api import API
 from app.api.endpoints.answer_question import AnswerQuestionEndpoint
 from app.config.config import (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, VECTOR_INDEX_NAME, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
+from app.models.feedback import Feedback
+
 
 # Configure logging for debugging
 logging.basicConfig(
@@ -47,7 +50,7 @@ app = api_instance.app
 
 qa_endpoint = AnswerQuestionEndpoint(app, graphrag)
 feedback_endpoint = FeedbackEndpoint(app, driver)
-
+DataBase.metadata.create_all(bind=engine)
 
 @app.on_event("shutdown")
 def shutdown_event():

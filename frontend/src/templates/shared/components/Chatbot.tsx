@@ -283,7 +283,6 @@ export default function Chatbot(props: ChatbotProps) {
   const fileStatusPollers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const fetchedSessionFilesRef = useRef<Set<string>>(new Set());
   const copyFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const copyFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearFileStatusTracker = useCallback((fileId: string) => {
     const timeoutId = fileStatusPollers.current.get(fileId);
@@ -1215,8 +1214,7 @@ export default function Chatbot(props: ChatbotProps) {
                               )}
                             </IconButton>
                           <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Listen</span>
-                        </div>
-                          <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Listen</span>
+                          </div>
                         </div>
 
                         {/* Graphs / Sources modal */}
@@ -1239,26 +1237,6 @@ export default function Chatbot(props: ChatbotProps) {
                             <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Sources</span>
                           </div>
                         ) : null}
-                        {chat.src && chat.src.length > 0 ? (
-                          <div className='flex flex-col items-center gap-1 min-w-[56px]'>
-                            <IconButton
-                              isClean
-                              ariaLabel='Show graphs & sources'
-                              onClick={() => {
-                                const meta = messageMetaRef.current.get(chat.id);
-                                setModelModal(meta?.model || '');
-                                setEntitiesModal(meta?.entities || []);
-                                setTimeTaken(meta?.timeTaken || 0);
-                                setSourcesModal(chat.src ?? []);
-                                setIsOpenModal(true);
-                              }}
-                            >
-                              <PiGraphBold className='w-4 h-4 inline-block' />
-                            </IconButton>
-                            <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Sources</span>
-                          </div>
-                        ) : null}
-
                         {/* Copy */}
                         <div className='flex flex-col items-center gap-1 min-w-[56px]'>
                           <IconButton
@@ -1288,7 +1266,6 @@ export default function Chatbot(props: ChatbotProps) {
                         </div>
 
                         {/* Like / Dislike */}
-                        <div className='flex flex-col items-center gap-1 min-w-[56px]'>
                           <div className='flex flex-col items-center gap-1 min-w-[56px]'>
                           <IconButton
                               isClean
@@ -1301,9 +1278,6 @@ export default function Chatbot(props: ChatbotProps) {
                           <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Like</span>
                         </div>
                         <div className='flex flex-col items-center gap-1 min-w-[56px]'>
-                            <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Like</span>
-                        </div>
-                        <div className='flex flex-col items-center gap-1 min-w-[56px]'>
                           <IconButton
                               isClean
                               ariaLabel='Dislike'
@@ -1313,25 +1287,7 @@ export default function Chatbot(props: ChatbotProps) {
                               <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
                             </IconButton>
                           <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Dislike</span>
-                        </div>
-                          <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Dislike</span>
-                        </div>
-                        <IconButton
-                          isClean
-                          ariaLabel='Like'
-                          onClick={() => sendFeedback(chat.id, currentSession, true)}
-                          isDisabled={isLoading || chat.isTyping}
-                        >
-                          <HandThumbUpIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
-                        </IconButton>
-                        <IconButton
-                          isClean
-                          ariaLabel='Dislike'
-                          onClick={() => sendFeedback(chat.id,currentSession, false)}
-                          isDisabled={isLoading || chat.isTyping}
-                        >
-                          <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
-                        </IconButton>
+                          </div>
                       </div>
                     ) : (
                       <></>

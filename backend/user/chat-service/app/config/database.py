@@ -20,7 +20,6 @@ engine = create_engine(
 DataBase = declarative_base()
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
-DataBase.metadata.create_all(bind=engine)
 
 def get_database():
     db = SessionLocal()
