@@ -39,19 +39,24 @@ retriever = retriever_instance.retriever
 
 chat_message_history = ChatMessageHistory.get_instance(driver_messages)
 
+logger.info("Beginning graphrag initialization")
 graphrag = GraphRAGPipeline(
     llm=llm,
     retriever=retriever,
     history=chat_message_history
 )
+logger.info("Graphrag initialized successfully")
 
+logger.info("Beginning API initialization")
 api_instance = API.get_instance()
 app = api_instance.app
 
-qa_endpoint = AnswerQuestionEndpoint(app, graphrag)
+qa_endpoint = AnswerQuestionEndpoint(app, graphrag,driver)
 feedback_endpoint = FeedbackEndpoint(app, driver)
-DataBase.metadata.create_all(bind=engine)
+logger.info("API initialized successfully")
 
+DataBase.metadata.create_all(bind=engine)
+logger.info("All tables created successfully")
 @app.on_event("shutdown")
 def shutdown_event():
     driver.close()

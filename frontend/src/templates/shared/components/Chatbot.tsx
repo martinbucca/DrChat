@@ -43,6 +43,19 @@ import axios from 'axios';
 // ---------------------------------------------
 // Types
 // ---------------------------------------------
+interface GraphNode {
+  id: string;
+  labels?: string[];
+  properties?: Record<string, any>;
+}
+
+interface GraphRel {
+  id: string;
+  start: string;
+  end: string;
+  type?: string;
+  properties?: Record<string, any>;
+}
 
 type ChatbotProps = {
   messages?: {
@@ -62,6 +75,8 @@ type ChatbotResponse = {
   model?: string;
   timeTaken?: number;
   createdAt?: string;
+  nodes?: GraphNode[];
+  rels?: GraphRel[];
 };
 
 // Meta (entities/model/time) we store alongside each chatbot message id
@@ -651,6 +666,8 @@ export default function Chatbot(props: ChatbotProps) {
 
   // ---------- Typing effect + final persist ----------
   const simulateTypingEffect = (response: ChatbotResponse) => {
+    
+    console.log("Response in simulateTypingEffect:", response)
     const date = response.createdAt ? new Date(response.createdAt) : new Date();
     const datetime = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
     const messageId = Date.now();
@@ -721,16 +738,18 @@ export default function Chatbot(props: ChatbotProps) {
 
     try {
       const call = await chatBotAPI(inputMessage, currentSession.id, createdAtISO);
+      console.log("call:", call)
       const chatresponse = call.response;
       const answer: string = chatresponse.answer ?? chatresponse.response ?? '';
       const created_at: string = chatresponse.created_at ?? new Date().toISOString();
       const sources: string[] = Array.isArray(chatresponse.retriever_result)
         ? chatresponse.retriever_result.flatMap((s: { listIds?: string[] }) => s.listIds || [])
         : [];
+      console.log(sources)
       const entities: string[] = Array.isArray(chatresponse.retriever_result)
         ? chatresponse.retriever_result.flatMap((s: { entities?: string[] }) => s.entities || [])
         : [];
-
+      console.log(entities)
       const reply: ChatbotResponse = {
         response: answer,
         src: sources,
@@ -738,6 +757,8 @@ export default function Chatbot(props: ChatbotProps) {
         model: chatresponse.model || 'OpenAI GPT o3-mini',
         timeTaken: call.timeTaken,
         createdAt: created_at,
+        nodes: chatresponse.nodes,
+        rels: chatresponse.rels,
       };
       // replace the placeholder typing with the real stream
       simulateTypingEffect(reply);

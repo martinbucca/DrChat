@@ -126,7 +126,7 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
 
     setDriver(uri, username, password).then((isSuccessful) => {
       runQuery(query1).then((result) => {
-
+        console.log(result)
         result.nodes.map((record: any) => {
 
           const label = record.labels.includes('Document')
