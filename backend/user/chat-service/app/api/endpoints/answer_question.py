@@ -123,9 +123,7 @@ class AnswerQuestionEndpoint:
                     if list_id is not None
                 ]
                 query = build_query(list_ids)
-                print(query)
                 data = run_query(self._driver,query)
-                print(data)
                 return {"answer": answer, 
                         "retriever_result": retriever_nodes, 
                         "answer_created_at": answer_created_at, 
