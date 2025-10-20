@@ -3,6 +3,8 @@ import { Typography, IconButton, Tabs, Switch, Logo } from '@neo4j-ndl/react';
 import React, { useState, useCallback } from 'react';
 import { ThemeWrapperContext } from '../../../context/ThemeWrapper';
 import User from './User';
+import DrChatLogo from '../assets/dr_chat_logo.png';
+
 
 export default function Header({
   title,
@@ -51,17 +53,15 @@ export default function Header({
         aria-label='main navigation'
       >
         <section className='flex md:flex-row flex-col items-center w-1/6 shrink-0 grow-0'>
-          <div className='md:inline-block'>
-            <Logo className='h-6 min-h-6 min-w-12 md:h-8 md:min-h-12 md:min-w-24 md:mr-2' type='full' />
-          </div>
-          <div className='flex justify-center md:ml-0 pl-0'>
+            <div className='flex justify-center md:ml-0 pl-0'>
+            <img src={DrChatLogo} alt="DrChat Logo" className='h-10 w-10 mr-2'/>
             <Typography className='md:inline-block hidden' variant='h6'>
               {title}
             </Typography>
             <Typography className='md:hidden inline-block' variant='subheading-small'>
               {title}
             </Typography>
-          </div>
+            </div>
         </section>
 
         <section className='flex w-1/3 shrink-0 grow-0 justify-center items-center mb-[-24px]'>

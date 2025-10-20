@@ -15,7 +15,7 @@ export default function QuickStarter() {
         activeNavItem={activeTab}
         setActiveNavItem={setActiveTab}
         userHeader={false}
-        documentation='https://neo4j.com/labs/neo4j-needle-starterkit/'
+        documentation='https://github.com/martinbucca/DrChat'
       />
       <div className='h-full min-h-screen w-full flex'>
         <Content activeTab={activeTab} />

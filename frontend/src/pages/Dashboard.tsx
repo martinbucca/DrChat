@@ -16,7 +16,7 @@ export default function Dashboard() {
           activeNavItem={activeNavItem}
           setActiveNavItem={setActiveNavItem}
           useNeo4jConnect={false}
-          documentation=''
+          documentation='https://github.com/martinbucca/DrChat'
         />
         <main className='flex-1 overflow-hidden'>
           <Chatbot />
