@@ -4,11 +4,12 @@ fastapi
 uvicorn[standard]
 python-dotenv
 neo4j
-langchain
+langchain==0.0.354
+langchain-community<0.1,>=0.0.20
 langchain-openai
+langchain-experimental==0.0.47
 neo4j-graphrag
-pydantic
+pydantic>=2.0.0
 psycopg[binary]==3.1.19
-langchain-experimental
 transformers
 sqlalchemy==2.0.32
