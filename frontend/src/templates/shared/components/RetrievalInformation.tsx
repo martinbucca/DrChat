@@ -6,8 +6,6 @@ import { IoCloseOutline } from 'react-icons/io5';
 import './Retrieval.css';
 import DrChatLogo from '../assets/dr_chat_logo.png';
 
-import { setDriver, runQuery } from '../utils/Driver';
-
 import { ResetZoomIcon, FitToScreenIcon } from '@neo4j-ndl/react/icons';
 
 import type NVL from '@neo4j-nvl/base';
@@ -37,12 +35,12 @@ type ExpandedNode = {
   }[];
 };
 
-function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) {
+function RetrievalInformation({ sources, model, entities, timeTaken, onClose, _nodes, _rels}) {
 
+  console.log("sources:", sources);
+  console.log("nodes:", _nodes);
+  console.log("rels:", _rels);
   const nvl = useRef<NVL | null>(null);
-  const [uri, setURI] = useState(import.meta.env.VITE_NEO4J_URI);
-  const [username, setUsername] = useState(import.meta.env.VITE_NEO4J_USERNAME);
-  const [password, setPassword] = useState(import.meta.env.VITE_NEO4J_PASSWORD);
   const [loading, setLoading] = useState(true);
   const [isExpanded, handleIsExpanded] = useState(false);
   const [expandedNode, setExpandedNode] = useState(null);
@@ -94,89 +92,46 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
   };
 
   function run() {
-    const formattedSources = sources.map((source) => `"${source}"`).join(',');
-    console.log(`[${formattedSources}]`);
 
-    const query1 = `
-    MATCH (a:Chunk)-[r:PART_OF_DOCUMENT]->(b:Document)
-    WHERE elementId(a) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    UNION
-    MATCH (a:Chunk)-[r:NEXT_CHUNK]-(b:Chunk)
-    WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    UNION
-    MATCH (a:Chunk)-[r:MENTIONS]-(b)
-    WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    UNION
-    MATCH (a:Chunk)-[r:RELATED_CONTENT]->(b:Image|Table)
-    WHERE elementId(a) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    LIMIT 500
-    `;
-
-    const query2 = `  
-    MATCH (a:Chunk)-[r2:PART_OF_DOCUMENT]-(d:Document) WHERE elementId(a) in [${formattedSources}]
-    MATCH (a)-[r]-(b)
-    WHERE elementId(b) IN [${formattedSources}]
-    RETURN a, r, b, r2, d LIMIT 1000
-
-    `;
-
-    setDriver(uri, username, password).then((isSuccessful) => {
-      runQuery(query1).then((result) => {
-
-        result.nodes.map((record: any) => {
-
-          const label = record.labels.includes('Document')
-            ? record.labels
-            : record.labels.includes('Entity')
-            ? record.properties.name
-            : record.labels.includes('Chunk')
-            ? "Text Section"
-            : record.labels.includes('Image')
-            ? "Image"
-            : record.labels.includes('Table')
-            ? "Table"
-            : record.properties.text ?? record.labels[0];
+    _nodes.map((record: any) => {
+      
+      const label = record.labels.includes('Document')
+        ? record.labels
+        : record.labels.includes('Entity')
+        ? record.properties.name
+        : record.labels.includes('Chunk')
+        ? "Chunk"
+        : record.properties.type
 
 
-          const color = record.labels.includes('Chunk')
-            ? '#0A6190'
-            : record.labels.includes('Document')
-            ? '#BCF194'
-            : record.labels.includes('Table')
-            ? '#B38EFF'
-            : record.labels.includes('Image')
-            ? '#FFC300'
-            : '#FF8E6A'
+      const color = record.labels.includes('Chunk')
+        ? '#0A6190'
+        : record.labels.includes('Document')
+        ? '#BCF194'
+        : record.labels.includes('Entity')
+        ? '#B38EFF'
+        : record.labels.includes('Image')
+        ? '#FFC300'
+        : '#FF8E6A'
 
-          setNodes((prevNodes) => [
-            ...prevNodes,
-            { id: record.id.toString(), color: color, captions: [{ value: label, labels: record.labels }], properties: record.properties },
-          ]);
-        });
-
-        result.rels.map((record: any) => {
-          if (record.type.toString() === 'NEXT_CHUNK') {
-            record.type = 'NEXT_SECTION';
-          }
-          setRels((prevRels) => [
-            ...prevRels,
-            {
-              id: record.id.toString(),
-              from: record.start.toString(),
-              to: record.end.toString(),
-              captions: [{ value: record.type.toString() }],
-              width: 1.2,
-              captionSize: 1.5
-            },
-          ]);
-        });
-        setLoading(false);
-      });
+      setNodes((prevNodes) => [
+        ...prevNodes,
+        { id: record.id.toString(), color: color, captions: [{ value: label, labels: record.labels }], properties: record.properties },
+      ]);
     });
+
+    _rels.map((record: any) => {
+      setRels((prevRels) => [
+        ...prevRels,
+        {
+          id: record.id.toString(),
+          from: record.start.toString(),
+          to: record.end.toString(),
+          captions: [{ value: record.type.toString() }],
+        },
+      ]);
+    });
+    setLoading(false);
   }
 
   return (

@@ -8,6 +8,7 @@ import {
   ReactNode,
 } from 'react';
 import axios from 'axios';
+import type {Node, Relationship} from '@neo4j-nvl/base';
 
 export type ChatMessage = {
   id: number | string;
@@ -16,6 +17,8 @@ export type ChatMessage = {
   datetime: string;
   isTyping?: boolean;
   src?: Array<string>;
+  nodes?: Node[];
+  rels?: Relationship[];
 };
 
 export type ChatSession = {
