@@ -100,6 +100,34 @@ const displayFromIso = (value?: string) => {
   return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
 };
 
+const updateSessionTimestamps = (
+  sessions: ChatSession[],
+  sessionId: string,
+  timestamp: string
+): ChatSession[] =>
+  sessions.map((session) => {
+    if (session.id !== sessionId) {
+      return session;
+    }
+
+    return {
+      ...session,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+  });
+
+const determineCurrentSessionId = (
+  currentId: string | null,
+  sessions: ChatSession[]
+): string | null => {
+  if (currentId && sessions.some((session) => session.id === currentId)) {
+    return currentId;
+  }
+
+  return sessions[0]?.id ?? null;
+};
+
 const mapBackendSession = (session: BackendSession): ChatSession => {
   const createdAtIso = isoOrNow(session.session_created_at);
   const apiMessages = session.messages ?? [];
@@ -221,31 +249,31 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
 
     let isCancelled = false;
 
+    const storeSessions = (fetchedSessions: ChatSession[]) => {
+      setSessions(fetchedSessions);
+      setCurrentSessionId((prevId) => determineCurrentSessionId(prevId, fetchedSessions));
+    };
+
+    const handleFetchError = (error: unknown) => {
+      if (!isCancelled) {
+        console.error('Unable to load chat sessions from history service', error);
+      }
+    };
+
     const fetchSessions = async () => {
       try {
-        const { data } = await axios.get<BackendSessionsResponse>(
+        const response = await axios.get<BackendSessionsResponse>(
           `${CHAT_HISTORY_BASE_URL}/sessions`,
-          {
-            params: { user_id: userId },
-          }
+          { params: { user_id: userId } }
         );
 
         if (isCancelled) {
           return;
         }
 
-        const mapped = mapBackendSessions(data);
-        setSessions(mapped);
-        setCurrentSessionId((prevCurrentId) => {
-          if (prevCurrentId && mapped.some((session) => session.id === prevCurrentId)) {
-            return prevCurrentId;
-          }
-          return mapped[0]?.id ?? null;
-        });
+        storeSessions(mapBackendSessions(response.data));
       } catch (error) {
-        if (!isCancelled) {
-          console.error('Unable to load chat sessions from history service', error);
-        }
+        handleFetchError(error);
       } finally {
         if (!isCancelled) {
           setHasAttemptedHistorySync(true);
@@ -292,18 +320,7 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
           })
           .then((response) => {
             const createdAt = isoOrNow(response.data?.created_at);
-            setSessions((prev) =>
-              prev.map((session) => {
-                if (session.id === sessionId) {
-                  return {
-                    ...session,
-                    createdAt,
-                    updatedAt: createdAt,
-                  };
-                }
-                return session;
-              })
-            );
+            setSessions((prev) => updateSessionTimestamps(prev, sessionId, createdAt));
           })
           .catch((error) => {
             console.error('Unable to persist chat session in history service', error);
@@ -372,18 +389,7 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
             })
             .then((response) => {
               const createdAt = isoOrNow(response.data?.created_at);
-              setSessions((prev) =>
-                prev.map((session) => {
-                  if (session.id === sessionId) {
-                    return {
-                      ...session,
-                      createdAt,
-                      updatedAt: createdAt,
-                    };
-                  }
-                  return session;
-                })
-              );
+              setSessions((prev) => updateSessionTimestamps(prev, sessionId, createdAt));
             })
             .catch((error) => {
               console.error('Unable to persist chat session created from message', error);

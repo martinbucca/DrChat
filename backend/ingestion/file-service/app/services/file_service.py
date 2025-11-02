@@ -1,10 +1,11 @@
-import shutil
+import anyio
 import uuid
 from datetime import datetime
 from pathlib import Path
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+
 
 from core.config import settings
 from core.logging import logger as log
@@ -40,9 +41,12 @@ class FileService:
         
         log.info(f"Saving file to: {file_path}")
         
-        # Save the file
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Save file
+        await file.seek(0)
+        async with await anyio.open_file(file_path, "wb") as buffer:
+            while chunk := await file.read(1024 * 1024):
+                await buffer.write(chunk)
+            await buffer.flush()
         
         log.info(f"File saved successfully: {unique_filename}")
         
