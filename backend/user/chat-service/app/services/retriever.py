@@ -32,17 +32,28 @@ class Retriever:
     WITH node, score, d
     // get the entities - optional to include chunks without entity mentions
     OPTIONAL MATCH (node)-[:MENTIONS]-(e)
-    WITH node, score, d, collect({
-        text: e.text,
-        label: e.label,
-        elementId: elementId(e)
-    }) as entities
+    // get relationships between entities
+    OPTIONAL MATCH (e)-[r]->(related)
+    WHERE type(r) IN ['TREATS', 'DIAGNOSES', 'INDICATES', 'MONITORS', 'CAUSES', 'PREVENTS']
+    WITH node, score, d, 
+         collect(DISTINCT {
+             text: e.text,
+             label: e.label,
+             elementId: elementId(e)
+         }) as entities,
+         collect(DISTINCT {
+             source: e.text,
+             relationship: type(r),
+             target: related.text,
+             target_label: labels(related)[0]
+         }) as relationships
     RETURN
         node.text AS nodeText,
         score, 
         node.page_number AS page,
         d.name AS document,
         entities,
+        relationships,
         collect(elementId(node)) + [entity IN entities | entity.elementId] as listIds
     """
 
@@ -74,12 +85,23 @@ class Retriever:
         document = record.get("document", "")
         page = record.get("page", "")
         entities = record.get("entities", [])
+        relationships = record.get("relationships", [])
         list_ids = record.get("listIds", [])
 
-        # Format entities as "name (id)"
+        # Format entities as "name (type)"
         entities_str = ", ".join(
             f"{ent.get('text', '')} ({ent.get('label', '')})" for ent in entities if ent.get('text')
         )
+
+        # Format relationships as "source -[RELATIONSHIP]-> target"
+        relationships_str = ""
+        if relationships:
+            valid_rels = [r for r in relationships if r.get('source') and r.get('relationship')]
+            if valid_rels:
+                relationships_str = "\n".join(
+                    f"  • {rel.get('source')} -[{rel.get('relationship')}]-> {rel.get('target')} ({rel.get('target_label', 'Entity')})"
+                    for rel in valid_rels
+                )
 
         # Prepare content string, clear and ready for LLM
         clean_text = node_text.replace("\n", chr(10))
@@ -87,9 +109,14 @@ class Retriever:
             f"Score: {score}\n\n"
             f"Document: {document.split('/')[-1].rsplit('.', 1)[0]}\n\n"
             f"Text: {clean_text}\n\n"
-            f"Entities mentioned in the text: {entities_str}\n\n"
-            f"Page: {page}\n"
+            f"Entities mentioned: {entities_str if entities_str else 'None'}\n\n"
         )
+        
+        # Add relationships if any
+        if relationships_str:
+            content += f"Medical relationships in this context:\n{relationships_str}\n\n"
+        
+        content += f"Page: {page}\n"
 
         return RetrieverResultItem(
             content=content,

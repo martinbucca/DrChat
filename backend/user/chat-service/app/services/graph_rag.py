@@ -175,5 +175,8 @@ Answer:
             return False
         except PromptInjectionException:
             return True
+        except Exception as e:
+            logger.error(f"Error during prompt injection detection: {e}")
+            return False
 
 
