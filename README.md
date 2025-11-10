@@ -92,27 +92,27 @@ El proyecto utiliza una configuración simplificada con solo **dos archivos** de
 ### **Archivo Principal (`.env`)**
 Contiene toda la configuración para los servicios backend y base de datos:
 
-| Variable                        | Descripción                                                                 |
-|---------------------------------|-----------------------------------------------------------------------------|
-| **Base de Datos**               |                                                                             |
-| `NEO4J_URI`                     | URI de conexión para Neo4j (ej: `bolt://neo4j:7687`)                      |
+| Variable                        | Descripción                                                                |
+|---------------------------------|----------------------------------------------------------------------------|
+| **Base de Datos**               |                                                                            |
+| `NEO4J_URI`                     | URI de conexión para Neo4j (ej: `bolt://neo4j:7687`)                       |
 | `NEO4J_USERNAME`                | Usuario para autenticación en Neo4j                                        |
 | `NEO4J_PASSWORD`                | Contraseña para autenticación en Neo4j                                     |
 | `POSTGRES_HOST`                 | Host de PostgreSQL (ej: `postgres`)                                        |
 | `POSTGRES_PORT`                 | Puerto de PostgreSQL (ej: `5432`)                                          |
-| `POSTGRES_USER`                 | Usuario de PostgreSQL                                                       |
+| `POSTGRES_USER`                 | Usuario de PostgreSQL                                                      |
 | `POSTGRES_PASSWORD`             | Contraseña de PostgreSQL                                                   |
 | `POSTGRES_DB`                   | Nombre de la base de datos PostgreSQL                                      |
-| **Kafka**                       |                                                                             |
-| `KAFKA_BOOTSTRAP_SERVERS`       | Servidores de Kafka (ej: `kafka:29092`)                                   |
+| **Kafka**                       |                                                                            |
+| `KAFKA_BOOTSTRAP_SERVERS`       | Servidores de Kafka (ej: `kafka:29092`)                                    |
 | `KAFKA_FILE_UPLOAD_TOPIC`       | Tópico de Kafka para eventos de archivos                                   |
 | `KAFKA_GROUP_ID`                | ID del grupo de consumidores Kafka                                         |
-| **URLs de Servicios**           |                                                                             |
+| **URLs de Servicios**           |                                                                            |
 | `FILE_SERVICE_URL`              | URL del servicio de archivos                                               |
 | `CHAT_SERVICE_URL`              | URL del servicio de chat                                                   |
 | `CHAT_HISTORY_SERVICE_URL`      | URL del servicio de historial de chat                                      |
 | `USER_SERVICE_URL`              | URL del servicio de usuarios                                               |
-| **IA/ML**                       |                                                                             |
+| **IA/ML**                       |                                                                            |
 | `AZURE_OPENAI_API_KEY`          | API Key para Azure OpenAI                                                  |
 | `AZURE_OPENAI_API_VERSION`      | Versión de la API de Azure OpenAI                                          |
 | `AZURE_OPENAI_ENDPOINT`         | Endpoint de Azure OpenAI                                                   |
@@ -120,15 +120,15 @@ Contiene toda la configuración para los servicios backend y base de datos:
 | `LLM_CHAT_MODEL`                | Modelo de chat del LLM                                                     |
 | `GROQ_API_BASE`                 | URL base de la API de Groq                                                 |
 | `GROQ_API_KEY`                  | API Key para Groq                                                          |
-| **Procesamiento de Documentos** |                                                                             |
+| **Procesamiento de Documentos** |                                                                            |
 | `UNSTRUCTURED_API_KEY`          | API Key para el servicio Unstructured                                      |
 | `UNSTRUCTURED_URL`              | URL del servicio Unstructured                                              |
 | `VECTOR_INDEX_NAME`             | Nombre del índice vectorial en Neo4j                                       |
 | `FULLTEXT_INDEX_NAME`           | Nombre del índice de texto completo en Neo4j                               |
-| **Almacenamiento y Logs**       |                                                                             |
+| **Almacenamiento y Logs**       |                                                                            |
 | `STORAGE_DIR`                   | Directorio de almacenamiento de archivos                                   |
 | `LOG_LEVEL`                     | Nivel de logging (INFO, DEBUG, ERROR)                                      |
-| **Autenticación**               |                                                                             |
+| **Autenticación**               |                                                                            |
 | `FIREBASE_WEB_API_KEY`          | API Key de Firebase                                                        |
 | `GOOGLE_APPLICATION_CREDENTIALS`| Ruta al archivo de credenciales de Firebase                                |
 
@@ -137,59 +137,12 @@ Contiene la configuración específica del frontend:
 
 | Variable                | Descripción                                                                 |
 |-------------------------|-----------------------------------------------------------------------------|
-| `VITE_BACKEND_URL`      | URL del servicio de chat backend (ej: `http://localhost:8002`)             |
-| `VITE_USER_API_URL`     | URL del servicio de usuarios (ej: `http://localhost:8004`)                 |
-| `VITE_FILE_SERVICE_URL` | URL del servicio de archivos (ej: `http://localhost:8001`)                 |
-| `VITE_CHAT_HISTORY_SERVICE_URL` | URL del servicio de historial de chat (ej: `http://localhost:8003`)       |
+| `VITE_CHAT_SERVICE_URL` | URL del servicio de chat (ej: `http://localhost:8004`)                      |
+| `VITE_USER_SERVICE_URL` | URL del servicio de usuarios (ej: `http://localhost:8001`)                  |
+| `VITE_FILE_SERVICE_URL` | URL del servicio de archivos (ej: `http://localhost:8003`)                  |
 
 ---
 
 ## 🗺️ Diagrama de arquitectura
 
 ![Diagrama de arquitectura](img/diagrama-arquitectura.png)
-
----
-
-## 🌐 **Frontend**
-
-El frontend está desarrollado en React y se comunica con el backend a través de los endpoints expuestos por los microservicios. Permite a los usuarios interactuar con el sistema, enviar mensajes y recibir respuestas basadas en la información procesada.
-
----
-
-## 🛠️ **Backend**
-
-El backend está dividido en tres módulos principales: **Ingestion**, **Pipeline** y **User**. Cada módulo contiene microservicios y workers que interactúan entre sí a través de apis REST y Kafka.
-
-### 📦 **Ingestion**
-
-#### `file-service`
-**Descripción:**  
-👉 Microservicio desarrollado con **FastAPI** que se encarga de recibir archivos PDF, guardarlos en el directorio de almacenamiento y mantener un registro de metadatos en **PostgreSQL**. El servicio utiliza una arquitectura modular con separación clara de responsabilidades y está completamente containerizado con Docker.
-
-**Endpoints:**
-- `GET /`: Health check del servicio
-- `POST /files/upload`: Recibe un archivo PDF y un `session_id` y lo guarda en el sistema
-- `GET /files/{file_id}`: Obtiene el estado y metadatos del archivo por su ID
-- `PUT /files/{file_id}/status`: Actualiza el estado del archivo (por ejemplo, de `pending` a `processing` o `processed`)
-- `GET /docs`: Documentación interactiva de la API (Swagger UI)
-
----
-
-### 🔄 **Pipeline**
-
-#### `document-processor-worker`
-**Descripción:**  
-👉 Worker que consume los mensajes publicados por el `file-service`, accede al archivo PDF correspondiente y lo divide en chunks. Procesa en paralelo cada uno y extrae entidades y relaciones para cargar en la base Neo4J. Además le solicita al `file-service` actualizar el estado a `processing` cuando empieza y a `processed` cuando termina.
-
----
-
-### 👤 **User**
-
-#### `chat-service`
-**Descripción:**  
-👉 Microservicio encargado de recibir los mensajes de los usuarios y almacenarlos en la base de datos. Para responder, se comunica con el `retriever-service`, que obtiene el contexto y genera la respuesta.
-
-**Endpoints:**
-- `POST /chat/send`: Recibe un mensaje de usuario, lo almacena y responde. En la respuesta se incluye el ID del chat.
-- `GET /chat/{chat_id}`: Obtiene el historial de mensajes de un chat por su ID.
-- `GET /chat/{chat_id}/last`: Obtiene el último mensaje de un chat.
