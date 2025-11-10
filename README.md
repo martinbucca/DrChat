@@ -1,8 +1,51 @@
-# DrChat
+<h1 align="center">DrChat</h1>
 
-Chatbot médico que procesa documentos PDF y permite a los usuarios interactuar con un sistema de preguntas y respuestas basado en la información contenida en dichos documentos.
+<p align="center">
+  <img src="frontend/public/DrChat.png" alt="DrChat Logo" width="200"/>
+</p>
 
-Los archivos PDF pueden ser enviados por los usuarios a través del frontend. Los nodos generados incluirán un `session_id` para asociar el documento a un chat específico. El sistema procesa los documentos, extrae entidades y relaciones, y permite a los usuarios realizar consultas sobre la información contenida en ellos.
+---
+
+### 🩺 Descripción del Proyecto
+
+**DrChat** es un chatbot médico inteligente que procesa documentos en formato **PDF** y permite a los usuarios interactuar mediante un sistema de **preguntas y respuestas** basado en la información contenida en dichos documentos.  
+
+**DrChat** permite a los usuarios interactuar con un chatbot médico capaz de comprender el contenido de documentos clínicos y científicos.  
+El sistema analiza la información contenida en los archivos y construye una base de conocimiento que le permite ofrecer respuestas más ricas y fundamentadas.  
+
+Entre sus principales características se destacan:
+- 💬 **Conversación contextual**: el chatbot mantiene el contexto de la conversación, permitiendo hacer preguntas relacionadas con respuestas anteriores.  
+- 🧠 **Comprensión de documentos**: interpreta el contenido médico y científico para responder preguntas basadas en la información real de los textos.  
+- 🔍 **Respuestas con fundamento**: cada respuesta se apoya en las fuentes originales, ofreciendo transparencia y trazabilidad.  
+- 🧩 **Exploración del conocimiento**: permite descubrir conceptos y relaciones entre entidades médicas, facilitando la investigación y el aprendizaje.  
+- ⚡ **Búsqueda inteligente**: utiliza razonamiento semántico para encontrar información relevante incluso cuando las preguntas no coinciden textualmente con el contenido.  
+
+Estas funciones convierten a **DrChat** en una herramienta útil para **profesionales de la salud, estudiantes e investigadores**, ayudándolos a explorar y comprender grandes volúmenes de información médica de forma simple e interactiva.
+
+
+El sistema está diseñado para asistir a **profesionales de la salud, investigadores y estudiantes** en la exploración y comprensión de grandes volúmenes de información médica no estructurada.
+
+Podés acceder a la aplicación en 👉 **[dr-chat.app](https://dr-chat.app)**  
+
+---
+
+### 🎓 Contexto Académico
+
+Este proyecto fue desarrollado en el marco del **Trabajo Profesional de la carrera de Ingeniería en Informática** de la **Universidad de Buenos Aires (UBA)**.  
+Combina técnicas de **Procesamiento de Lenguaje Natural (NLP)**, **bases de datos en grafo** y **modelos de lenguaje (LLMs)** para demostrar el potencial de la integración entre inteligencia artificial y sistemas de conocimiento estructurado.
+
+---
+
+### ⚙️ Tecnologías Principales
+
+- **Python** – Backend y procesamiento de documentos  
+- **Neo4j** – Almacenamiento y consulta del grafo de conocimiento  
+- **LangChain / GraphRAG** – Recuperación y generación aumentada por grafo  
+- **React / Next.js** – Frontend interactivo  
+- **Docker** – Contenedorización del entorno  
+
+
+
 
 ---
 
