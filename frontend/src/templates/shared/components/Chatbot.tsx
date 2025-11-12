@@ -37,8 +37,9 @@ import {
 import { PiGraphBold } from 'react-icons/pi';
 
 import RetrievalInformation from './RetrievalInformation';
-import { useChatSession, ChatMessage, ChatSession } from '../../../context/ChatSessionContext';
+import { useChatSession, ChatMessage, ChatSession} from '../../../context/ChatSessionContext';
 import axios from 'axios';
+import type {Node, Relationship} from '@neo4j-nvl/base';
 
 // ---------------------------------------------
 // Types
@@ -62,6 +63,8 @@ type ChatbotResponse = {
   model?: string;
   timeTaken?: number;
   createdAt?: string;
+  nodes?: Node[];
+  rels?: Relationship[];
 };
 
 // Meta (entities/model/time) we store alongside each chatbot message id
@@ -268,6 +271,8 @@ export default function Chatbot(props: ChatbotProps) {
   const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
   const [timeTaken, setTimeTaken] = useState<number>(0);
   const [sourcesModal, setSourcesModal] = useState<string[]>([]);
+  const [nodesModal, setNodesModal] = useState<Node[]>([]);
+  const [relsModal, setRelsModal] = useState<Relationship[]>([]);
   const [entitiesModal, setEntitiesModal] = useState<string[]>([]);
   const [modelModal, setModelModal] = useState<string>('');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
@@ -682,6 +687,8 @@ export default function Chatbot(props: ChatbotProps) {
 
   // ---------- Typing effect + final persist ----------
   const simulateTypingEffect = (response: ChatbotResponse) => {
+    
+    console.log("Response in simulateTypingEffect:", response)
     const date = response.createdAt ? new Date(response.createdAt) : new Date();
     const datetime = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
     const messageId = Date.now();
@@ -716,6 +723,8 @@ export default function Chatbot(props: ChatbotProps) {
             datetime: datetime,
             isTyping: false,
             src: response.src || [],
+            nodes: response.nodes || [],
+            rels: response.rels || [],
           } as ChatMessage;
           addMessageToCurrentSession(finalMessage);
         }
@@ -752,16 +761,18 @@ export default function Chatbot(props: ChatbotProps) {
 
     try {
       const call = await chatBotAPI(inputMessage, currentSession.id, createdAtISO);
+      console.log("call:", call)
       const chatresponse = call.response;
       const answer: string = chatresponse.answer ?? chatresponse.response ?? '';
       const created_at: string = chatresponse.created_at ?? new Date().toISOString();
       const sources: string[] = Array.isArray(chatresponse.retriever_result)
         ? chatresponse.retriever_result.flatMap((s: { listIds?: string[] }) => s.listIds || [])
         : [];
+      console.log(sources)
       const entities: string[] = Array.isArray(chatresponse.retriever_result)
         ? chatresponse.retriever_result.flatMap((s: { entities?: string[] }) => s.entities || [])
         : [];
-
+      console.log(entities)
       const reply: ChatbotResponse = {
         response: answer,
         src: sources,
@@ -769,6 +780,8 @@ export default function Chatbot(props: ChatbotProps) {
         model: chatresponse.model || 'OpenAI GPT o3-mini',
         timeTaken: call.timeTaken,
         createdAt: created_at,
+        nodes: chatresponse.nodes,
+        rels: chatresponse.rels,
       };
       // replace the placeholder typing with the real stream
       simulateTypingEffect(reply);
@@ -1167,33 +1180,35 @@ export default function Chatbot(props: ChatbotProps) {
 
         <div className='flex-1 overflow-y-auto pb-6 n-bg-palette-neutral-bg-default'>
           <div className='flex flex-col gap-3 p-3 min-h-full'>
-            {currentMessages.map((chat) => (
-              <div
+            {currentMessages.map((chat) => {
+              return(
+                
+                <div
                 ref={messagesEndRef}
                 key={chat.id}
                 className={`flex gap-2.5 items-end ${chat.user === 'chatbot' ? 'flex-row' : 'flex-row-reverse'} `}
-              >
+                >
                 <div className='w-8 h-8 mr-4 ml-4'>
                   {chat.user === 'chatbot' ? (
                     <Avatar
-                      className='-ml-4'
-                      hasStatus
-                      name='KM'
-                      size='x-large'
-                      source={ChatBotAvatar}
-                      status='online'
-                      type='image'
-                      shape='square'
+                    className='-ml-4'
+                    hasStatus
+                    name='KM'
+                    size='x-large'
+                    source={ChatBotAvatar}
+                    status='online'
+                    type='image'
+                    shape='square'
                     />
                   ) : (
                     <Avatar
-                      className=''
-                      hasStatus
-                      name='KM'
-                      size='x-large'
-                      status='online'
-                      type='image'
-                      shape='square'
+                    className=''
+                    hasStatus
+                    name='KM'
+                    size='x-large'
+                    status='online'
+                    type='image'
+                    shape='square'
                     />
                   )}
                 </div>
@@ -1203,7 +1218,7 @@ export default function Chatbot(props: ChatbotProps) {
                   className={`p-4 self-start max-w-[55%] ${
                     chat.user === 'chatbot' ? 'n-bg-palette-neutral-bg-weak' : 'n-bg-palette-primary-bg-weak'
                   }`}
-                >
+                  >
                   <div>
                     <ReactMarkdown
                       components={{
@@ -1237,7 +1252,7 @@ export default function Chatbot(props: ChatbotProps) {
                                 await chatBotVoice(chat.message);
                                 setLoadingPlaying(false);
                               }}
-                            >
+                              >
                               {loadingPlaying ? (
                                 <LoadingSpinner className='w-4 h-4 inline-block' />
                               ) : (
@@ -1250,23 +1265,30 @@ export default function Chatbot(props: ChatbotProps) {
 
                         {/* Graphs / Sources modal */}
                         {chat.src && chat.src.length > 0 ? (
-                          <div className='flex flex-col items-center gap-1 min-w-[56px]'>
-                            <IconButton
-                              isClean
-                              ariaLabel='Show graphs & sources'
-                              onClick={() => {
-                                const meta = messageMetaRef.current.get(chat.id);
-                                setModelModal(meta?.model || '');
-                                setEntitiesModal(meta?.entities || []);
-                                setTimeTaken(meta?.timeTaken || 0);
-                                setSourcesModal(chat.src ?? []);
-                                setIsOpenModal(true);
-                              }}
-                            >
-                              <PiGraphBold className='w-4 h-4 inline-block' />
-                            </IconButton>
-                            <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Sources</span>
-                          </div>
+                          (() => {
+                            console.log("Chat object when entering the condition:", chat);
+                            return (
+                              <div className='flex flex-col items-center gap-1 min-w-[56px]'>
+                                <IconButton
+                                  isClean
+                                  ariaLabel='Show graphs & sources'
+                                  onClick={() => {
+                                    const meta = messageMetaRef.current.get(chat.id);
+                                    setModelModal(meta?.model || '');
+                                    setEntitiesModal(meta?.entities || []);
+                                    setTimeTaken(meta?.timeTaken || 0);
+                                    setSourcesModal(chat.src ?? []);
+                                    setIsOpenModal(true);
+                                    setNodesModal(chat.nodes ?? []);
+                                    setRelsModal(chat.rels ?? []);
+                                  }}
+                                >
+                                  <PiGraphBold className='w-4 h-4 inline-block' />
+                                </IconButton>
+                                <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Sources</span>
+                              </div>
+                            );
+                          })()
                         ) : null}
                         {/* Copy */}
                         <div className='flex flex-col items-center gap-1 min-w-[56px]'>
@@ -1293,7 +1315,7 @@ export default function Chatbot(props: ChatbotProps) {
                               ariaLabel='Like'
                               onClick={() => sendFeedback(chat.id, currentSession, true)}
                               isDisabled={isLoading || chat.isTyping}
-                            >
+                              >
                               <HandThumbUpIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
                             </IconButton>
                           <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Like</span>
@@ -1304,7 +1326,7 @@ export default function Chatbot(props: ChatbotProps) {
                               ariaLabel='Dislike'
                               onClick={() => sendFeedback(chat.id,currentSession, false)}
                               isDisabled={isLoading || chat.isTyping}
-                            >
+                              >
                               <HandThumbDownIconOutline className='w-4 h-4 inline-block n-text-palette-danger-text' />
                             </IconButton>
                           <span className='text-xs text-[rgb(var(--theme-palette-neutral-text-weak))]'>Dislike</span>
@@ -1316,7 +1338,8 @@ export default function Chatbot(props: ChatbotProps) {
                   </Typography>
                 </Widget>
               </div>
-            ))}
+                 
+            );})}
 
             {isLoading && (
               <div ref={messagesEndRef} className='flex gap-2.5 items-end flex-row'>
@@ -1428,7 +1451,10 @@ export default function Chatbot(props: ChatbotProps) {
               model={modelModal}
               timeTaken={timeTaken}
               entities={entitiesModal}
-              onClose={handleCloseModal} />
+              onClose={handleCloseModal}
+              _nodes = {nodesModal}
+              _rels = {relsModal}
+              />
           </Modal>
           </>
         )}

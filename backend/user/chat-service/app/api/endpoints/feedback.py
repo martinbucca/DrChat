@@ -9,13 +9,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 class FeedbackEndpoint:
-    def __init__(self, app, neo4j_driver):
-        self.app = app
-        self.neo4j_driver = neo4j_driver
+    def __init__(self, app, driver):
+        self._app = app
+        self._driver = driver
         self._register_endpoint()
 
     def _register_endpoint(self):
-        @self.app.post("/feedback")
+        @self._app.post("/feedback")
         async def feedback(feedback: FeedbackRequest, db: Session = Depends(get_database)):
             try:
                 session_id = feedback.session_id
@@ -24,7 +24,7 @@ class FeedbackEndpoint:
                 response = feedback.response
                 message_id = feedback.message_id
 
-                with self.neo4j_driver.session() as session:
+                with self._driver.session() as session:
                     result = session.run(
                         "MATCH (u:User)-[:HAS_SESSION]->(s:Session {id: $session_id}) "
                         "RETURN u.id AS user_id",

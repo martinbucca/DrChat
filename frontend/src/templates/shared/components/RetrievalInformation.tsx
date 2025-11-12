@@ -6,8 +6,6 @@ import { IoCloseOutline } from 'react-icons/io5';
 import './Retrieval.css';
 import DrChatLogo from '../assets/dr_chat_logo.png';
 
-import { setDriver, runQuery } from '../utils/Driver';
-
 import { ResetZoomIcon, FitToScreenIcon } from '@neo4j-ndl/react/icons';
 
 import type NVL from '@neo4j-nvl/base';
@@ -80,10 +78,10 @@ const resolveNodeColor = (record: any) => {
 
 function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) {
 
+  console.log("sources:", sources);
+  console.log("nodes:", _nodes);
+  console.log("rels:", _rels);
   const nvl = useRef<NVL | null>(null);
-  const [uri, setURI] = useState(import.meta.env.VITE_NEO4J_URI);
-  const [username, setUsername] = useState(import.meta.env.VITE_NEO4J_USERNAME);
-  const [password, setPassword] = useState(import.meta.env.VITE_NEO4J_PASSWORD);
   const [loading, setLoading] = useState(true);
   const [isExpanded, handleIsExpanded] = useState(false);
   const [expandedNode, setExpandedNode] = useState(null);

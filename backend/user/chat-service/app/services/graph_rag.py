@@ -1,5 +1,5 @@
 from langchain_openai import ChatOpenAI
-from langchain_experimental.prompt_injection_identifier.hugging_face_identifier import HuggingFaceInjectionIdentifier
+from langchain_experimental.prompt_injection_identifier.hugging_face_identifier import HuggingFaceInjectionIdentifier, PromptInjectionException
 from neo4j_graphrag.message_history import MessageHistory
 from transformers import Pipeline
 from typing import Optional, Callable, Any
@@ -12,6 +12,7 @@ from app.services.chat_history import ChatMessageHistory
 import logging
 
 logger = logging.getLogger(__name__)
+HuggingFaceInjectionIdentifier.model_rebuild()
 
 class GraphRAGPipeline:
     """
@@ -172,15 +173,10 @@ Answer:
         try:
             self.injection_identifier._run(query_text)
             return False
-        except ValueError as e:
-            # ValueError is raised when prompt injection is detected
-            if "injection" in str(e).lower():
-                logger.info("Prompt injection detected in query")
-                return True
-            # Re-raise if it's a different ValueError
-            raise
+        except PromptInjectionException:
+            return True
         except Exception as e:
-            logger.error(f"Unexpected error during prompt injection check: {e}")
+            logger.error(f"Error during prompt injection detection: {e}")
             return False
 
 
