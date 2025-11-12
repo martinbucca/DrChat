@@ -1,5 +1,9 @@
 # Creating the vector index
 import time
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from typing import Dict, List, Optional, Tuple
+
 from neo4j_graphrag.indexes import create_vector_index
 from neo4j_graphrag.indexes import create_fulltext_index
 from neo4j import GraphDatabase
@@ -129,98 +133,108 @@ CALL apoc.nodes.link(nodes, "NEXT_CHUNK", {avoidDuplicates: true})
         self.entity_relationship_extractor = entity_relationship_extractor
         self._create_vector_indexes()
 
-    def process_chunks(self, chunks: list[dict], original_filename: str = None, session_id: str = None):
-        import concurrent.futures
-        import threading
-        
-        logger.info(f"Processing {len(chunks)} chunks in parallel for session {session_id}")
-        
-        # Add session_id to each chunk's metadata if provided
-        if session_id:
-            i = 0
-            for chunk in chunks:
-                if 'metadata' not in chunk:
-                    chunk['metadata'] = {}
-                chunk['metadata']['session_id'] = session_id
-                chunk['metadata']['original_filename'] = original_filename
-                chunk["number"] = i + 1
-                i += 1
-        
-        def process_single_chunk(chunk_data):
-            i, chunk = chunk_data
-            try:
-                if chunk.get("text"):
-                    text = chunk["text"]
-                    
-                    # Initialize empty lists for entities and relationships
-                    chunk["entities"] = []
-                    chunk["relationships"] = []
-                    
-                    # Process entities if extractor available
-                    if self.entity_relationship_extractor:
-                        ner_result = self.entity_relationship_extractor.extract_entities_and_relationships(text)
-                        chunk["entities"] = ner_result.get("entities", [])
-                        chunk["relationships"] = ner_result.get("relationships", [])
-                    
-                    # Calculate tokens
-                    chunk["tokens"] = len(nltk.word_tokenize(text))
-                    
-                    # Generate embedding
-                    try:
-                        embedding = self.embedder.embed_query(text)
-                        chunk["embedding"] = embedding
-                    except Exception as e:
-                        logger.error(f"Error embedding text for chunk {i}: {e}")
-                        chunk["embedding"] = []
-                
-                # Process metadata
-                metadata = chunk.get("metadata", {})
-                orig_elements = metadata.get("orig_elements", None)
-                if orig_elements:
-                    orig_elements = self._extract_orig_elements(orig_elements)
+    def process_chunks(
+        self, chunks: List[Dict], original_filename: Optional[str] = None, session_id: Optional[str] = None
+    ):
+        total_chunks = len(chunks)
+        logger.info(f"Processing {total_chunks} chunks in parallel for session {session_id}")
 
-                    for obj in orig_elements:
-                        if obj.get("type") == "FigureCaption" and obj.get("text", "").lower().startswith("figure"):
-                            metadata["figure_caption"] = obj["text"]
+        if total_chunks == 0:
+            logger.info("No chunks to process")
+            return
 
-                        if obj.get("type") == "Image":
-                            metadata.update({
-                                "element_id": obj["element_id"],
-                                "type": obj["type"],
-                                "image_base64": obj["metadata"]["image_base64"],
-                                "image_mime_type": obj["metadata"]["image_mime_type"],
-                                "text": obj["text"]
-                            })
+        self._annotate_session_metadata(chunks, original_filename, session_id)
 
-                        if obj.get("type") == "Table":
-                            metadata.update({
-                                "element_id": obj["element_id"],
-                                "type": obj["type"],
-                                "text_as_html": obj["metadata"]["text_as_html"],
-                                "image_base64": obj["metadata"]["image_base64"],
-                                "image_mime_type": obj["metadata"]["image_mime_type"],
-                                "text": obj["text"]
-                            })
-
-                # Clean metadata
-                chunk['metadata'].pop('orig_elements', None)
-                logger.info(f"Processed chunk {i+1}/{len(chunks)}")
-                return chunk
-                
-            except Exception as e:
-                logger.error(f"Error processing chunk {i}: {e}")
-                return chunk
-        
-        # Process chunks in parallel with limited concurrency to avoid rate limits
-        max_workers = min(4, len(chunks))  # Limit to 4 concurrent workers
+        max_workers = max(1, min(4, total_chunks))
         chunk_data = list(enumerate(chunks))
-        
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            processed_chunks = list(executor.map(process_single_chunk, chunk_data))
-        
+        process_chunk = partial(self._process_chunk, total_chunks=total_chunks)
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            processed_chunks = list(executor.map(process_chunk, chunk_data))
+
         logger.info("All chunks processed, loading into Neo4j")
         json_data = json.dumps(processed_chunks, indent=4)
         self._load_graph(json_data, original_filename, session_id)
+
+    def _annotate_session_metadata(
+        self, chunks: List[Dict], original_filename: Optional[str], session_id: Optional[str]
+    ) -> None:
+        if not session_id:
+            return
+
+        for index, chunk in enumerate(chunks, start=1):
+            metadata = chunk.setdefault("metadata", {})
+            metadata['session_id'] = session_id
+            metadata['original_filename'] = original_filename
+            chunk['number'] = index
+
+    def _process_chunk(self, chunk_data: Tuple[int, Dict], total_chunks: int) -> Dict:
+        index, chunk = chunk_data
+        try:
+            text = chunk.get("text")
+            if text:
+                self._process_chunk_text(chunk, text, index)
+
+            self._process_chunk_metadata(chunk)
+            logger.info(f"Processed chunk {index + 1}/{total_chunks}")
+        except Exception as exc:
+            logger.error(f"Error processing chunk {index}: {exc}")
+            chunk.setdefault("processing_errors", []).append(str(exc))
+        return chunk
+
+    def _process_chunk_text(self, chunk: Dict, text: str, index: int) -> None:
+        chunk["entities"] = []
+        chunk["relationships"] = []
+
+        if self.entity_relationship_extractor:
+            ner_result = self.entity_relationship_extractor.extract_entities_and_relationships(text)
+            chunk["entities"] = ner_result.get("entities", [])
+            chunk["relationships"] = ner_result.get("relationships", [])
+
+        chunk["tokens"] = len(nltk.word_tokenize(text))
+
+        try:
+            chunk["embedding"] = self.embedder.embed_query(text)
+        except Exception as exc:
+            logger.error(f"Error embedding text for chunk {index}: {exc}")
+            chunk["embedding"] = []
+
+    def _process_chunk_metadata(self, chunk: Dict) -> None:
+        metadata = chunk.setdefault("metadata", {})
+        orig_elements = metadata.get("orig_elements")
+        if orig_elements:
+            elements = self._extract_orig_elements(orig_elements) if isinstance(orig_elements, (bytes, str)) else orig_elements
+            for obj in elements or []:
+                self._merge_orig_element(metadata, obj)
+
+        metadata.pop('orig_elements', None)
+
+    def _merge_orig_element(self, metadata: Dict, obj: Dict) -> None:
+        element_type = obj.get("type")
+
+        if element_type == "FigureCaption" and obj.get("text", "").lower().startswith("figure"):
+            metadata["figure_caption"] = obj["text"]
+            return
+
+        if element_type == "Image":
+            metadata.update({
+                "element_id": obj.get("element_id"),
+                "type": element_type,
+                "image_base64": obj.get("metadata", {}).get("image_base64"),
+                "image_mime_type": obj.get("metadata", {}).get("image_mime_type"),
+                "text": obj.get("text"),
+            })
+            return
+
+        if element_type == "Table":
+            metadata.update({
+                "element_id": obj.get("element_id"),
+                "type": element_type,
+                "text_as_html": obj.get("metadata", {}).get("text_as_html"),
+                "image_base64": obj.get("metadata", {}).get("image_base64"),
+                "image_mime_type": obj.get("metadata", {}).get("image_mime_type"),
+                "text": obj.get("text"),
+            })
 
     def _run_query(self, tx, query, json_data):
         return tx.run(query, {"json": json_data}).consume()

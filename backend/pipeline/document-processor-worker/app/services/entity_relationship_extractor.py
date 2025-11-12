@@ -1,11 +1,11 @@
 import logging
 import re
-from typing import Dict, List, Tuple
+from itertools import combinations
+from typing import Dict, Iterable, List, Tuple, Optional
 from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
 import torch
 import uuid
 import unicodedata
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,87 @@ class EntityRelationshipExtractor:
         'problematic_single_words': ['all cells', 'cells', 'cell', 'tissue', 'sample', 'control', 'group',
                                    'study', 'analysis', 'data', 'result', 'findings', 'conclusion']
     }
+    GENERIC_MEDICAL_CONTEXTS = [
+        'therapy', 'treatment', 'surgery', 'procedure', 'intervention',
+        'device', 'implant', 'prosthetic', 'cardiac', 'ventricular', 'vascular'
+    ]
+    VAGUE_TERM_ANCHORS = [
+        'cardiac', 'cardiovascular', 'heart', 'ventricular', 'arterial',
+        'pulmonary', 'myocardial', 'therapeutic', 'diagnostic'
+    ]
+    QUANTITATIVE_CONTEXT_PATTERN = re.compile(
+        r'\b\d+(\.\d+)?\s*(mg|ml|mmol|percent|%|fold|times|days|weeks|months)\b'
+    )
+    RELATION_PATTERNS = {
+        'TREATS': [
+            r'treat(s|ed|ing|ment)', r'cure(s|d)', r'therap(y|ies)', r'medication for',
+            r'administered for', r'prescribed for', r'used to treat', r'effective against',
+            r'therapeutic for', r'remedy for', r'applied to', r'indicated for'
+        ],
+        'CAUSES': [
+            r'cause(s|d)', r'lead(s|ing) to', r'result(s|ed) in', r'trigger(s|ed)',
+            r'induce(s|d)', r'precipitate(s|d)', r'provoke(s|d)', r'bring(s) about',
+            r'responsible for', r'due to', r'secondary to', r'attributed to'
+        ],
+        'PREVENTS': [
+            r'prevent(s|ed|ing|ion)', r'avoid(s|ed|ing)', r'protect(s|ed|ing) against',
+            r'reduce(s|d) risk', r'lower(s|ed) risk', r'prophylaxis', r'inhibit(s|ed)',
+            r'block(s|ed)', r'suppress(es|ed)'
+        ],
+        'IMPROVES': [
+            r'improve(s|d)', r'enhance(s|d)', r'increase(s|d)', r'boost(s|ed)',
+            r'restore(s|d)', r'repair(s|ed)', r'regenerate(s|d)', r'strengthen(s|ed)',
+            r'optimize(s|d)', r'support(s|ed)'
+        ],
+        'LOCATED_IN': [
+            r'located in', r'found in', r'present in', r'within the', r'inside the',
+            r'part of', r'component of', r'region of', r'situated in', r'contained in'
+        ],
+        'ASSOCIATED_WITH': [
+            r'associated with', r'related to', r'linked to', r'connected to',
+            r'correlated with', r'accompanied by', r'co-occurs with', r'seen with'
+        ]
+    }
+    TYPE_RELATION_RULES = {
+        ('Therapeutic_procedure', 'Disease_disorder'): 'TREATS',
+        ('Disease_disorder', 'Sign_symptom'): 'MANIFESTS_AS',
+        ('Diagnostic_procedure', 'Disease_disorder'): 'DIAGNOSES',
+        ('Lab_value', 'Disease_disorder'): 'INDICATES',
+        ('Biological_structure', 'Disease_disorder'): 'AFFECTED_BY',
+        ('Therapeutic_procedure', 'Sign_symptom'): 'ALLEVIATES',
+        ('Diagnostic_procedure', 'Biological_structure'): 'EXAMINES',
+        ('Lab_value', 'Therapeutic_procedure'): 'MONITORS',
+        ('Detailed_description', 'Diagnostic_procedure'): 'DESCRIBES',
+        ('Clinical_event', 'Disease_disorder'): 'INVOLVES'
+    }
+    GENERIC_RELATION_TERMS = {
+        'mechanical', 'fluorescent', 'increased', 'decreased', 'factors', 'effects'
+    }
+    SPECIFIC_MEDICAL_TERMS = {
+        'heart failure', 'cardiovascular diseases', 'cardiac', 'ventricular',
+        'myocardial', 'arterial', 'pulmonary', 'therapeutic', 'diagnostic'
+    }
+    INTER_CHUNK_TYPE_RULES = {
+        ('Therapeutic_procedure', 'Disease_disorder'): 'TREATS',
+        ('Disease_disorder', 'Sign_symptom'): 'MANIFESTS_AS',
+        ('Diagnostic_procedure', 'Disease_disorder'): 'DIAGNOSES',
+        ('Lab_value', 'Disease_disorder'): 'INDICATES',
+        ('Biological_structure', 'Disease_disorder'): 'AFFECTED_BY',
+        ('Therapeutic_procedure', 'Sign_symptom'): 'ALLEVIATES',
+        ('Diagnostic_procedure', 'Biological_structure'): 'EXAMINES',
+        ('Lab_value', 'Therapeutic_procedure'): 'MONITORS',
+        ('Disease_disorder', 'Therapeutic_procedure'): 'TREATED_BY',
+        ('Sign_symptom', 'Disease_disorder'): 'SYMPTOM_OF',
+    }
+    INTER_CHUNK_CONTEXT_PATTERNS = {
+        'TREATS': [r'treatment', r'therapy', r'therapeutic', r'cure', r'heal', r'remedy'],
+        'CAUSES': [r'causes?', r'leads? to', r'results? in', r'triggers?'],
+        'PREVENTS': [r'prevent', r'prophylaxis', r'protection', r'avoid'],
+    }
+    INTER_CHUNK_MAX_DISTANCE = 1200
+    MEDICAL_CONTEXT_TERMS = [
+        'treatment', 'therapy', 'disease', 'disorder', 'symptom', 'diagnosis', 'patient'
+    ]
     
     # Thresholds dinámicos por tipo de entidad
     CONFIDENCE_THRESHOLDS = {
@@ -118,38 +199,48 @@ class EntityRelationshipExtractor:
         """Validación contextual inteligente de entidades"""
         entity_lower = entity_text.lower().strip()
         context_lower = context.lower()
-        
-        # Verificar si la entidad está en stop-words por categoría
-        for category, words in self.MEDICAL_STOP_WORDS.items():
-            if entity_lower in words:
-                # Si es un término genérico, requiere contexto médico específico
-                if category == 'generic_descriptors':
-                    # Permitir si está en contexto de procedimientos específicos
-                    medical_contexts = ['therapy', 'treatment', 'surgery', 'procedure', 'intervention',
-                                      'device', 'implant', 'prosthetic', 'cardiac', 'ventricular', 'vascular']
-                    if not any(ctx in context_lower for ctx in medical_contexts):
-                        return False
-                
-                # Si es un término vago, requiere contexto muy específico
-                elif category == 'vague_terms':
-                    # Solo permitir si está muy cerca de términos médicos específicos
-                    specific_terms = ['cardiac', 'cardiovascular', 'heart', 'ventricular', 'arterial', 
-                                    'pulmonary', 'myocardial', 'therapeutic', 'diagnostic']
-                    # Buscar en un contexto más pequeño alrededor de la entidad
-                    entity_pos = context_lower.find(entity_lower)
-                    if entity_pos != -1:
-                        local_context = context_lower[max(0, entity_pos-50):entity_pos+len(entity_lower)+50]
-                        if not any(term in local_context for term in specific_terms):
-                            return False
-                
-                # Términos de bajo valor requieren contexto cuantitativo
-                elif category == 'low_value':
-                    # Permitir solo si está cerca de valores específicos o medidas
-                    numeric_pattern = r'\b\d+(\.\d+)?\s*(mg|ml|mmol|percent|%|fold|times|days|weeks|months)\b'
-                    if not re.search(numeric_pattern, context_lower):
-                        return False
-        
+
+        categories = [
+            category for category, words in self.MEDICAL_STOP_WORDS.items()
+            if entity_lower in words
+        ]
+
+        for category in categories:
+            if not self._passes_category_validation(category, entity_lower, context_lower):
+                return False
+
         return True
+
+    def _passes_category_validation(self, category: str, entity_lower: str, context_lower: str) -> bool:
+        """Run the category-specific validation rule if one is defined."""
+        validators = {
+            'generic_descriptors': self._has_required_medical_context,
+            'vague_terms': self._is_supported_by_specific_context,
+            'low_value': self._is_near_quantitative_data,
+        }
+        validator = validators.get(category)
+        if not validator:
+            return True
+        return validator(entity_lower, context_lower)
+
+    def _has_required_medical_context(self, _: str, context_lower: str) -> bool:
+        """Generic descriptors need a clear medical procedure context."""
+        return any(ctx in context_lower for ctx in self.GENERIC_MEDICAL_CONTEXTS)
+
+    def _is_supported_by_specific_context(self, entity_lower: str, context_lower: str) -> bool:
+        """Vague terms must appear near specific medical anchors."""
+        position = context_lower.find(entity_lower)
+        if position == -1:
+            return True
+
+        span_start = max(0, position - 50)
+        span_end = position + len(entity_lower) + 50
+        local_context = context_lower[span_start:span_end]
+        return any(term in local_context for term in self.VAGUE_TERM_ANCHORS)
+
+    def _is_near_quantitative_data(self, _: str, context_lower: str) -> bool:
+        """Low value terms need quantitative measurements nearby."""
+        return bool(self.QUANTITATIVE_CONTEXT_PATTERN.search(context_lower))
 
     def _get_dynamic_threshold(self, entity_type: str) -> float:
         """Obtener threshold dinámico basado en tipo de entidad"""
@@ -280,204 +371,179 @@ class EntityRelationshipExtractor:
         """Extract relationships between entities using proximity and patterns"""
         relationships = []
 
-        if len(entities) < 2:
-            return relationships
+        for entity1, entity2, between_text in self._generate_relationship_candidates(entities, text):
+            relation_type = self._match_relation_type(between_text)
+            if relation_type:
+                relationships.append(self._build_relationship(entity1, entity2, relation_type))
 
-        # Solo considerar entidades con alta confianza (más estricto para BioBERT)
-        high_confidence_entities = [e for e in entities if e.get('confidence', 0) > 0.85]
-        
-        if len(high_confidence_entities) < 2:
-            return relationships
-
-        # Relationship patterns - Expandidos para medicina
-        relation_patterns = {
-            'TREATS': [
-                r'treat(s|ed|ing|ment)', r'cure(s|d)', r'therap(y|ies)', r'medication for',
-                r'administered for', r'prescribed for', r'used to treat', r'effective against',
-                r'therapeutic for', r'remedy for', r'applied to', r'indicated for'
-            ],
-            'CAUSES': [
-                r'cause(s|d)', r'lead(s|ing) to', r'result(s|ed) in', r'trigger(s|ed)',
-                r'induce(s|d)', r'precipitate(s|d)', r'provoke(s|d)', r'bring(s) about',
-                r'responsible for', r'due to', r'secondary to', r'attributed to'
-            ],
-            'PREVENTS': [
-                r'prevent(s|ed|ing|ion)', r'avoid(s|ed|ing)', r'protect(s|ed|ing) against',
-                r'reduce(s|d) risk', r'lower(s|ed) risk', r'prophylaxis', r'inhibit(s|ed)',
-                r'block(s|ed)', r'suppress(es|ed)'
-            ],
-            'IMPROVES': [
-                r'improve(s|d)', r'enhance(s|d)', r'increase(s|d)', r'boost(s|ed)',
-                r'restore(s|d)', r'repair(s|ed)', r'regenerate(s|d)', r'strengthen(s|ed)',
-                r'optimize(s|d)', r'support(s|ed)'
-            ],
-            'LOCATED_IN': [
-                r'located in', r'found in', r'present in', r'within the', r'inside the',
-                r'part of', r'component of', r'region of', r'situated in', r'contained in'
-            ],
-            'ASSOCIATED_WITH': [
-                r'associated with', r'related to', r'linked to', r'connected to',
-                r'correlated with', r'accompanied by', r'co-occurs with', r'seen with'
-            ]
-        }
-
-        for i, entity1 in enumerate(high_confidence_entities):
-            for j, entity2 in enumerate(high_confidence_entities[i+1:], i+1):
-                # Evitar auto-relaciones (misma entidad)
-                if (entity1.get('canonical_text') == entity2.get('canonical_text') or
-                    entity1.get('text') == entity2.get('text')):
-                    continue
-                
-                # Check if entities are close enough (increased range for more relationships)
-                distance = abs(entity1['start'] - entity2['start'])
-                if distance > 150:  # Increased from 100 to get more relationships
-                    continue
-
-                # Verificar que ambas entidades tengan canonical_text válido
-                if (not entity1.get('canonical_text') or 
-                    not entity2.get('canonical_text') or
-                    len(entity1.get('canonical_text', '')) < 3 or  # Minimum 3 chars
-                    len(entity2.get('canonical_text', '')) < 3 or
-                    self._is_corrupted_entity(entity1.get('canonical_text', '')) or
-                    self._is_corrupted_entity(entity2.get('canonical_text', ''))):
-                    continue
-
-                # Extract text between entities
-                start_pos = min(entity1['end'], entity2['end'])
-                end_pos = max(entity1['start'], entity2['start'])
-                between_text = text[start_pos:end_pos].lower()
-
-                # Solo crear relación si hay texto significativo entre entidades (reducido de 3 a 2)
-                if len(between_text.strip()) < 2:
-                    continue
-
-                # Check for relationship patterns
-                relationship_found = False
-                for relation_type, patterns in relation_patterns.items():
-                    if relationship_found:
-                        break
-                    for pattern in patterns:
-                        if re.search(pattern, between_text):
-                            relationship = {
-                                'id': str(uuid.uuid4()),
-                                'source': entity1.get('canonical_text'),
-                                'source_surface': entity1.get('text'),
-                                'target': entity2.get('canonical_text'),
-                                'target_surface': entity2.get('text'),
-                                'type': relation_type,
-                                'confidence': 0.8  # Mayor confianza para relaciones
-                            }
-                            relationships.append(relationship)
-                            relationship_found = True
-                            break
-        
         return relationships
+
+    def _filter_high_confidence(self, entities: List[Dict], threshold: float = 0.85) -> List[Dict]:
+        """Return only entities whose confidence exceeds the desired threshold."""
+        return [entity for entity in entities if entity.get('confidence', 0) > threshold]
+
+    def _generate_relationship_candidates(
+        self, entities: List[Dict], text: str
+    ) -> List[Tuple[Dict, Dict, str]]:
+        """Collect high-confidence entity pairs that have meaningful context between them."""
+        if len(entities) < 2:
+            return []
+
+        high_confidence = self._filter_high_confidence(entities)
+        if len(high_confidence) < 2:
+            return []
+
+        candidates = []
+        for entity1, entity2 in combinations(high_confidence, 2):
+            if self._should_skip_pair(entity1, entity2):
+                continue
+
+            between_text = self._extract_between_text(entity1, entity2, text)
+            if not between_text:
+                continue
+
+            candidates.append((entity1, entity2, between_text))
+
+        return candidates
+
+    def _should_skip_pair(self, entity1: Dict, entity2: Dict, max_distance: int = 150) -> bool:
+        """Apply all quick rejection rules for a pair of entities."""
+        if (
+            entity1.get('canonical_text') == entity2.get('canonical_text')
+            or entity1.get('text') == entity2.get('text')
+        ):
+            return True
+
+        distance = abs(entity1['start'] - entity2['start'])
+        if distance > max_distance:
+            return True
+
+        return not (self._has_valid_canonical(entity1) and self._has_valid_canonical(entity2))
+
+    def _has_valid_canonical(self, entity: Dict) -> bool:
+        """Check canonical text is present, long enough, and not corrupted."""
+        canonical = entity.get('canonical_text')
+        if not canonical or len(canonical) < 3:
+            return False
+        return not self._is_corrupted_entity(canonical)
+
+    def _extract_between_text(self, entity1: Dict, entity2: Dict, text: str) -> str:
+        """Return normalized text between two entities or empty string if insignificant."""
+        start_pos = min(entity1['end'], entity2['end'])
+        end_pos = max(entity1['start'], entity2['start'])
+        between_text = text[start_pos:end_pos].lower()
+        return between_text if between_text.strip() and len(between_text.strip()) >= 2 else ""
+
+    def _match_relation_type(self, between_text: str) -> Optional[str]:
+        """Return the first relation type whose pattern matches the text between entities."""
+        for relation_type, patterns in self.RELATION_PATTERNS.items():
+            for pattern in patterns:
+                if re.search(pattern, between_text):
+                    return relation_type
+        return None
+
+    def _build_relationship(
+        self,
+        source: Dict,
+        target: Dict,
+        relation_type: str,
+        confidence: float = 0.8,
+        extras: Optional[Dict] = None,
+    ) -> Dict:
+        """Create the relationship payload with consistent fields."""
+        relationship = {
+            'id': str(uuid.uuid4()),
+            'source': source.get('canonical_text'),
+            'source_surface': source.get('text'),
+            'target': target.get('canonical_text'),
+            'target_surface': target.get('text'),
+            'type': relation_type,
+            'confidence': confidence,
+        }
+        if extras:
+            relationship.update(extras)
+        return relationship
     
     def _extract_type_based_relationships(self, entities: List[Dict]) -> List[Dict]:
         """Extract relationships based on entity types using medical logic"""
         relationships = []
         
-        if len(entities) < 2:
-            return relationships
-            
-        # Solo considerar entidades con alta confianza
-        high_confidence_entities = [e for e in entities if e.get('confidence', 0) > 0.85]
-        
+        high_confidence_entities = self._filter_high_confidence(entities)
         if len(high_confidence_entities) < 2:
             return relationships
-            
-        # Reglas médicas basadas en tipos de entidad de BioBERT
-        type_rules = {
-            ('Therapeutic_procedure', 'Disease_disorder'): 'TREATS',
-            ('Disease_disorder', 'Sign_symptom'): 'MANIFESTS_AS',
-            ('Diagnostic_procedure', 'Disease_disorder'): 'DIAGNOSES',
-            ('Lab_value', 'Disease_disorder'): 'INDICATES',
-            ('Biological_structure', 'Disease_disorder'): 'AFFECTED_BY',
-            ('Therapeutic_procedure', 'Sign_symptom'): 'ALLEVIATES',
-            ('Diagnostic_procedure', 'Biological_structure'): 'EXAMINES',
-            ('Lab_value', 'Therapeutic_procedure'): 'MONITORS',
-            ('Detailed_description', 'Diagnostic_procedure'): 'DESCRIBES',
-            ('Clinical_event', 'Disease_disorder'): 'INVOLVES'
-        }
         
-        for i, entity1 in enumerate(high_confidence_entities):
-            for j, entity2 in enumerate(high_confidence_entities[i+1:], i+1):
-                # Evitar auto-relaciones
-                if (entity1.get('canonical_text') == entity2.get('canonical_text') or
-                    entity1.get('text') == entity2.get('text')):
-                    continue
-                    
-                # Verificar distancia (más permisiva para relaciones tipo-based con chunks pequeños)
-                distance = abs(entity1['start'] - entity2['start'])
-                if distance > 300:  # AUMENTADO para aprovechar chunks más granulares
-                    continue
-                    
-                # Verificar validez de entidades
-                if (not entity1.get('canonical_text') or 
-                    not entity2.get('canonical_text') or
-                    len(entity1.get('canonical_text', '')) < 3 or
-                    len(entity2.get('canonical_text', '')) < 3 or
-                    self._is_corrupted_entity(entity1.get('canonical_text', '')) or
-                    self._is_corrupted_entity(entity2.get('canonical_text', ''))):
-                    continue
-                
-                # Obtener tipos de entidad
-                type1 = entity1.get('label', '')
-                type2 = entity2.get('label', '')
-                
-                # Buscar regla que coincida (en ambas direcciones)
-                relation_type = None
-                source_entity = entity1
-                target_entity = entity2
-                
-                if (type1, type2) in type_rules:
-                    relation_type = type_rules[(type1, type2)]
-                elif (type2, type1) in type_rules:
-                    relation_type = type_rules[(type2, type1)]
-                    source_entity = entity2
-                    target_entity = entity1
-                
-                if relation_type:
-                    # Calcular confianza basada en distancia y contexto
-                    base_confidence = 0.75
-                    distance_factor = max(0.5, 1.0 - (distance / 300.0))
-                    
-                    # Penalizar relaciones entre términos genéricos
-                    source_text = source_entity.get('text', '').lower()
-                    target_text = target_entity.get('text', '').lower()
-                    
-                    # Reducir confianza si ambos términos son genéricos
-                    generic_penalty = 1.0
-                    generic_terms = {'mechanical', 'fluorescent', 'increased', 'decreased', 'factors', 'effects'}
-                    if source_text in generic_terms and target_text in generic_terms:
-                        continue  # Saltar relaciones completamente genéricas
-                    elif source_text in generic_terms or target_text in generic_terms:
-                        generic_penalty = 0.8  # Reducir confianza para relaciones semi-genéricas
-                    
-                    # Boost de confianza para relaciones médicas específicas
-                    medical_boost = 1.0
-                    specific_medical = {'heart failure', 'cardiovascular diseases', 'cardiac', 'ventricular', 
-                                      'myocardial', 'arterial', 'pulmonary', 'therapeutic', 'diagnostic'}
-                    if (any(term in source_text for term in specific_medical) or 
-                        any(term in target_text for term in specific_medical)):
-                        medical_boost = 1.2
-                    
-                    final_confidence = min(0.9, base_confidence * distance_factor * generic_penalty * medical_boost)
-                    
-                    # Solo crear relaciones con confianza mínima
-                    if final_confidence >= 0.65:  # Threshold mínimo para relaciones de calidad
-                        relationship = {
-                            'id': str(uuid.uuid4()),
-                            'source': source_entity.get('canonical_text'),
-                            'source_surface': source_entity.get('text'),
-                            'target': target_entity.get('canonical_text'),
-                            'target_surface': target_entity.get('text'),
-                            'type': relation_type,
-                            'confidence': final_confidence
-                        }
-                        relationships.append(relationship)
+        for entity1, entity2 in combinations(high_confidence_entities, 2):
+            if self._should_skip_pair(entity1, entity2, max_distance=300):
+                continue
+
+            relation = self._determine_type_relation(entity1, entity2)
+            if not relation:
+                continue
+
+            relation_type, source_entity, target_entity = relation
+            distance = abs(source_entity['start'] - target_entity['start'])
+            final_confidence = self._compute_type_relation_confidence(
+                source_entity, target_entity, distance
+            )
+
+            if final_confidence is None or final_confidence < 0.65:
+                continue
+
+            relationships.append(
+                self._build_relationship(
+                    source_entity, target_entity, relation_type, final_confidence
+                )
+            )
         
         return relationships
+
+    def _determine_type_relation(
+        self, entity1: Dict, entity2: Dict
+    ) -> Optional[Tuple[str, Dict, Dict]]:
+        """Resolve the relation type and entity direction using predefined rules."""
+        type1 = entity1.get('label', '')
+        type2 = entity2.get('label', '')
+
+        if (type1, type2) in self.TYPE_RELATION_RULES:
+            return self.TYPE_RELATION_RULES[(type1, type2)], entity1, entity2
+        if (type2, type1) in self.TYPE_RELATION_RULES:
+            return self.TYPE_RELATION_RULES[(type2, type1)], entity2, entity1
+        return None
+
+    def _compute_type_relation_confidence(
+        self, source_entity: Dict, target_entity: Dict, distance: int
+    ) -> Optional[float]:
+        """Compute contextual confidence for type-based relationships."""
+        source_text = source_entity.get('text', '').lower()
+        target_text = target_entity.get('text', '').lower()
+
+        if (
+            source_text in self.GENERIC_RELATION_TERMS
+            and target_text in self.GENERIC_RELATION_TERMS
+        ):
+            return None
+
+        base_confidence = 0.75
+        distance_factor = max(0.5, 1.0 - (distance / 300.0))
+
+        generic_penalty = (
+            0.8
+            if source_text in self.GENERIC_RELATION_TERMS
+            or target_text in self.GENERIC_RELATION_TERMS
+            else 1.0
+        )
+
+        medical_boost = 1.0
+        if (
+            any(term in source_text for term in self.SPECIFIC_MEDICAL_TERMS)
+            or any(term in target_text for term in self.SPECIFIC_MEDICAL_TERMS)
+        ):
+            medical_boost = 1.2
+
+        final_confidence = min(
+            0.9, base_confidence * distance_factor * generic_penalty * medical_boost
+        )
+        return final_confidence
     
     def _extract_inter_chunk_relationships(self, entities: List[Dict], full_text: str) -> List[Dict]:
         """Extract relationships between entities across different chunks using medical logic"""
@@ -487,163 +553,148 @@ class EntityRelationshipExtractor:
             return relationships
             
         # Solo considerar entidades con alta confianza
-        high_confidence_entities = [e for e in entities if e.get('confidence', 0) > 0.85]
-        
+        high_confidence_entities = self._filter_high_confidence(entities)
         if len(high_confidence_entities) < 2:
             return relationships
-            
-        # Reglas médicas específicas con mayor distancia permitida
-        type_rules = {
-            ('Therapeutic_procedure', 'Disease_disorder'): 'TREATS',
-            ('Disease_disorder', 'Sign_symptom'): 'MANIFESTS_AS', 
-            ('Diagnostic_procedure', 'Disease_disorder'): 'DIAGNOSES',
-            ('Lab_value', 'Disease_disorder'): 'INDICATES',
-            ('Biological_structure', 'Disease_disorder'): 'AFFECTED_BY',
-            ('Therapeutic_procedure', 'Sign_symptom'): 'ALLEVIATES',
-            ('Diagnostic_procedure', 'Biological_structure'): 'EXAMINES',
-            ('Lab_value', 'Therapeutic_procedure'): 'MONITORS',
-            ('Disease_disorder', 'Therapeutic_procedure'): 'TREATED_BY',  # Bidireccional
-            ('Sign_symptom', 'Disease_disorder'): 'SYMPTOM_OF',  # Bidireccional
-        }
-        
-        # Patrones contextuales para validar relaciones a distancia
-        contextual_patterns = {
-            'TREATS': [r'treatment', r'therapy', r'therapeutic', r'cure', r'heal', r'remedy'],
-            'CAUSES': [r'causes?', r'leads? to', r'results? in', r'triggers?'],
-            'PREVENTS': [r'prevent', r'prophylaxis', r'protection', r'avoid'],
-        }
-        
-        for i, entity1 in enumerate(high_confidence_entities):
-            for j, entity2 in enumerate(high_confidence_entities[i+1:], i+1):
-                # Evitar auto-relaciones
-                if (entity1.get('canonical_text') == entity2.get('canonical_text') or
-                    entity1.get('text') == entity2.get('text')):
-                    continue
-                    
-                # Verificar validez de entidades
-                if (not entity1.get('canonical_text') or 
-                    not entity2.get('canonical_text') or
-                    len(entity1.get('canonical_text', '')) < 3 or
-                    len(entity2.get('canonical_text', '')) < 3 or
-                    self._is_corrupted_entity(entity1.get('canonical_text', '')) or
-                    self._is_corrupted_entity(entity2.get('canonical_text', ''))):
-                    continue
-                
-                # Calcular distancia
-                distance = abs(entity1['start'] - entity2['start'])
-                
-                # Permitir distancias mayores para relaciones importantes
-                max_distance = 1200
-                
-                if distance > max_distance:
-                    continue
-                
-                # Obtener tipos de entidad
-                type1 = entity1.get('label', '')
-                type2 = entity2.get('label', '')
-                
-                # Buscar regla que coincida
-                relation_type = None
-                source_entity = entity1
-                target_entity = entity2
-                
-                if (type1, type2) in type_rules:
-                    relation_type = type_rules[(type1, type2)]
-                elif (type2, type1) in type_rules:
-                    relation_type = type_rules[(type2, type1)]
-                    source_entity = entity2
-                    target_entity = entity1
-                
-                if relation_type:
-                    # Validar con contexto si las entidades están muy separadas
-                    should_create_relation = True
-                    
-                    if distance > 300:  # Para distancias grandes, validar contexto
-                        start_pos = min(entity1['start'], entity2['start'])
-                        end_pos = max(entity1['end'], entity2['end'])
-                        context = full_text[start_pos:end_pos].lower()
-                        
-                        # Buscar evidencia contextual
-                        has_context = False
-                        if relation_type in contextual_patterns:
-                            for pattern in contextual_patterns[relation_type]:
-                                if re.search(pattern, context):
-                                    has_context = True
-                                    break
-                        else:
-                            has_context = True  # Para otros tipos, aceptar por defecto
-                            
-                        should_create_relation = has_context
-                    
-                    if should_create_relation:
-                        # Calcular confianza dinámica
-                        base_confidence = 0.8
-                        distance_penalty = min(0.3, distance / 2000.0)
-                        final_confidence = max(0.5, base_confidence - distance_penalty)
-                        
-                        # Bonus por contexto médico
-                        context_start = max(0, min(entity1['start'], entity2['start']) - 50)
-                        context_end = min(len(full_text), max(entity1['end'], entity2['end']) + 50)
-                        context_window = full_text[context_start:context_end].lower()
-                        
-                        medical_terms = ['treatment', 'therapy', 'disease', 'disorder', 'symptom', 'diagnosis', 'patient']
-                        medical_context = sum(1 for term in medical_terms if term in context_window)
-                        context_bonus = min(0.1, medical_context * 0.02)
-                        
-                        final_confidence = min(0.95, final_confidence + context_bonus)
-                        
-                        relationship = {
-                            'id': str(uuid.uuid4()),
-                            'source': source_entity.get('canonical_text'),
-                            'source_surface': source_entity.get('text'),
-                            'target': target_entity.get('canonical_text'),
-                            'target_surface': target_entity.get('text'),
-                            'type': relation_type,
-                            'confidence': final_confidence,
-                            'distance': distance  # Para debugging
-                        }
-                        relationships.append(relationship)
-        
+
+        for entity1, entity2 in combinations(high_confidence_entities, 2):
+            relation = self._determine_inter_chunk_relation(entity1, entity2)
+            if not relation:
+                continue
+
+            relation_type, source_entity, target_entity, distance = relation
+
+            if distance > 300 and not self._has_supporting_context(
+                relation_type, source_entity, target_entity, full_text
+            ):
+                continue
+
+            confidence = self._compute_inter_chunk_confidence(
+                source_entity, target_entity, distance, full_text
+            )
+
+            relationships.append(
+                self._build_relationship(
+                    source_entity,
+                    target_entity,
+                    relation_type,
+                    confidence,
+                    extras={'distance': distance},
+                )
+            )
+
         logger.info(f"Created {len(relationships)} inter-chunk relationships")
         return relationships
+
+    def _determine_inter_chunk_relation(
+        self, entity1: Dict, entity2: Dict
+    ) -> Optional[Tuple[str, Dict, Dict, int]]:
+        """Identify cross-chunk relation type and direction, enforcing distance limits."""
+        if self._should_skip_pair(
+            entity1, entity2, max_distance=self.INTER_CHUNK_MAX_DISTANCE
+        ):
+            return None
+
+        type1 = entity1.get('label', '')
+        type2 = entity2.get('label', '')
+
+        if (type1, type2) in self.INTER_CHUNK_TYPE_RULES:
+            relation_type = self.INTER_CHUNK_TYPE_RULES[(type1, type2)]
+            source_entity, target_entity = entity1, entity2
+        elif (type2, type1) in self.INTER_CHUNK_TYPE_RULES:
+            relation_type = self.INTER_CHUNK_TYPE_RULES[(type2, type1)]
+            source_entity, target_entity = entity2, entity1
+        else:
+            return None
+
+        distance = abs(source_entity['start'] - target_entity['start'])
+        return relation_type, source_entity, target_entity, distance
+
+    def _has_supporting_context(
+        self,
+        relation_type: str,
+        source_entity: Dict,
+        target_entity: Dict,
+        full_text: str,
+    ) -> bool:
+        """Check for context words supporting long-distance relations."""
+        start_pos = min(source_entity['start'], target_entity['start'])
+        end_pos = max(source_entity['end'], target_entity['end'])
+        context = full_text[start_pos:end_pos].lower()
+
+        patterns = self.INTER_CHUNK_CONTEXT_PATTERNS.get(relation_type)
+        if not patterns:
+            return True
+
+        return any(re.search(pattern, context) for pattern in patterns)
+
+    def _compute_inter_chunk_confidence(
+        self,
+        source_entity: Dict,
+        target_entity: Dict,
+        distance: int,
+        full_text: str,
+    ) -> float:
+        """Estimate confidence for inter-chunk relations based on distance and context."""
+        base_confidence = 0.8
+        distance_penalty = min(0.3, distance / 2000.0)
+        confidence = max(0.5, base_confidence - distance_penalty)
+
+        context_start = max(0, min(source_entity['start'], target_entity['start']) - 50)
+        context_end = min(
+            len(full_text), max(source_entity['end'], target_entity['end']) + 50
+        )
+        context_window = full_text[context_start:context_end].lower()
+
+        medical_context = sum(
+            1 for term in self.MEDICAL_CONTEXT_TERMS if term in context_window
+        )
+        context_bonus = min(0.1, medical_context * 0.02)
+
+        return min(0.95, confidence + context_bonus)
     
     def _deduplicate_entities(self, entities: List[Dict]) -> List[Dict]:
         """Remove duplicate or very similar entities, keeping the one with highest confidence"""
         if not entities:
             return entities
         
-        deduplicated = []
-        seen_canonical = {}
-        
-        # Sort by confidence descending to keep best entities first
-        sorted_entities = sorted(entities, key=lambda x: x.get('confidence', 0), reverse=True)
-        
-        for entity in sorted_entities:
-            canonical = entity.get('canonical_text', '').strip()
-            text = entity.get('text', '').strip()
-            
-            if not canonical:
+        deduplicated: List[Dict] = []
+        seen: Dict[str, bool] = {}
+
+        for entity in self._sort_entities_by_confidence(entities):
+            canonical = self._get_canonical_text(entity)
+            if not canonical or canonical in seen:
                 continue
-                
-            # Check for exact duplicate canonical text
-            if canonical in seen_canonical:
+
+            if self._is_similar_to_seen(canonical, seen.keys()):
                 continue
-                
-            # Check for very similar entities (substring relationship)
-            is_duplicate = False
-            for seen_canon in seen_canonical.keys():
-                # If current entity is a substring of existing or vice versa
-                if (canonical in seen_canon and len(canonical) < len(seen_canon) * 0.8) or \
-                   (seen_canon in canonical and len(seen_canon) < len(canonical) * 0.8):
-                    is_duplicate = True
-                    break
-            
-            if not is_duplicate:
-                seen_canonical[canonical] = True
-                deduplicated.append(entity)
+
+            seen[canonical] = True
+            deduplicated.append(entity)
         
         logger.info(f"Deduplicated entities: {len(entities)} -> {len(deduplicated)}")
         return deduplicated
+
+    def _sort_entities_by_confidence(self, entities: List[Dict]) -> List[Dict]:
+        """Sort entities so that higher confidence appears first."""
+        return sorted(entities, key=lambda x: x.get('confidence', 0), reverse=True)
+
+    def _get_canonical_text(self, entity: Dict) -> str:
+        """Fetch canonical text stripped of whitespace."""
+        return entity.get('canonical_text', '').strip()
+
+    def _is_similar_to_seen(self, canonical: str, seen_canonicals: Iterable[str]) -> bool:
+        """Return True if canonical is too similar to any already-seen value."""
+        for seen_canon in seen_canonicals:
+            if self._are_canonicals_similar(canonical, seen_canon):
+                return True
+        return False
+
+    def _are_canonicals_similar(self, candidate: str, existing: str) -> bool:
+        return (
+            (candidate in existing and len(candidate) < len(existing) * 0.8)
+            or (existing in candidate and len(existing) < len(candidate) * 0.8)
+        )
     
     def _deduplicate_relationships(self, relationships: List[Dict]) -> List[Dict]:
         """Remove duplicate relationships, keeping the one with highest confidence"""

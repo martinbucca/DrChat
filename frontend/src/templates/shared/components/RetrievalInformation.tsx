@@ -35,7 +35,48 @@ type ExpandedNode = {
   }[];
 };
 
-function RetrievalInformation({ sources, model, entities, timeTaken, onClose, _nodes, _rels}) {
+const resolveNodeLabel = (record: any) => {
+  const labels = record.labels ?? [];
+
+  if (labels.includes('Document')) {
+    return labels;
+  }
+  if (labels.includes('Entity')) {
+    return record.properties.name;
+  }
+  if (labels.includes('Chunk')) {
+    return 'Text Section';
+  }
+  if (labels.includes('Image')) {
+    return 'Image';
+  }
+  if (labels.includes('Table')) {
+    return 'Table';
+  }
+
+  return record.properties.text ?? labels[0];
+};
+
+const resolveNodeColor = (record: any) => {
+  const labels = record.labels ?? [];
+
+  if (labels.includes('Chunk')) {
+    return '#0A6190';
+  }
+  if (labels.includes('Document')) {
+    return '#BCF194';
+  }
+  if (labels.includes('Table')) {
+    return '#B38EFF';
+  }
+  if (labels.includes('Image')) {
+    return '#FFC300';
+  }
+
+  return '#FF8E6A';
+};
+
+function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) {
 
   console.log("sources:", sources);
   console.log("nodes:", _nodes);
@@ -54,7 +95,7 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose, _n
   }
 
   useEffect(() => {
-    run();
+    void run();
   
   }, []);
 
@@ -91,47 +132,78 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose, _n
     onZoom: (zoomLevel: number) => console.log('onZoom', zoomLevel),
   };
 
-  function run() {
+  async function run() {
+    const formattedSources = sources.map((source) => `"${source}"`).join(',');
+    console.log(`[${formattedSources}]`);
 
-    _nodes.map((record: any) => {
-      
-      const label = record.labels.includes('Document')
-        ? record.labels
-        : record.labels.includes('Entity')
-        ? record.properties.name
-        : record.labels.includes('Chunk')
-        ? "Chunk"
-        : record.properties.type
+    const query1 = `
+    MATCH (a:Chunk)-[r:PART_OF_DOCUMENT]->(b:Document)
+    WHERE elementId(a) in [${formattedSources}]
+    RETURN DISTINCT a,r,b
+    UNION
+    MATCH (a:Chunk)-[r:NEXT_CHUNK]-(b:Chunk)
+    WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
+    RETURN DISTINCT a,r,b
+    UNION
+    MATCH (a:Chunk)-[r:MENTIONS]-(b)
+    WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
+    RETURN DISTINCT a,r,b
+    UNION
+    MATCH (a:Chunk)-[r:RELATED_CONTENT]->(b:Image|Table)
+    WHERE elementId(a) in [${formattedSources}]
+    RETURN DISTINCT a,r,b
+    LIMIT 500
+    `;
 
+    const query2 = `  
+    MATCH (a:Chunk)-[r2:PART_OF_DOCUMENT]-(d:Document) WHERE elementId(a) in [${formattedSources}]
+    MATCH (a)-[r]-(b)
+    WHERE elementId(b) IN [${formattedSources}]
+    RETURN a, r, b, r2, d LIMIT 1000
 
-      const color = record.labels.includes('Chunk')
-        ? '#0A6190'
-        : record.labels.includes('Document')
-        ? '#BCF194'
-        : record.labels.includes('Entity')
-        ? '#B38EFF'
-        : record.labels.includes('Image')
-        ? '#FFC300'
-        : '#FF8E6A'
+    `;
 
-      setNodes((prevNodes) => [
-        ...prevNodes,
-        { id: record.id.toString(), color: color, captions: [{ value: label, labels: record.labels }], properties: record.properties },
-      ]);
+    const buildNodeSnapshot = (record: any) => {
+      const label = resolveNodeLabel(record);
+      const color = resolveNodeColor(record);
+
+      return {
+        id: record.id.toString(),
+        color,
+        captions: [{ value: label, labels: record.labels }],
+        properties: record.properties,
+      };
+    };
+
+    const buildRelationshipSnapshot = (record: any) => ({
+      id: record.id.toString(),
+      from: record.start.toString(),
+      to: record.end.toString(),
+      captions: [{ value: record.type.toString() === 'NEXT_CHUNK' ? 'NEXT_SECTION' : record.type.toString() }],
+      width: 1.2,
+      captionSize: 1.5,
     });
 
-    _rels.map((record: any) => {
-      setRels((prevRels) => [
-        ...prevRels,
-        {
-          id: record.id.toString(),
-          from: record.start.toString(),
-          to: record.end.toString(),
-          captions: [{ value: record.type.toString() }],
-        },
-      ]);
-    });
-    setLoading(false);
+    const handleNodes = (records: any[]) => {
+      const snapshots = records.map(buildNodeSnapshot);
+      setNodes((prevNodes) => [...prevNodes, ...snapshots]);
+    };
+
+    const handleRelationships = (records: any[]) => {
+      const snapshots = records.map(buildRelationshipSnapshot);
+      setRels((prevRels) => [...prevRels, ...snapshots]);
+    };
+
+    try {
+      await setDriver(uri, username, password);
+      const result = await runQuery(query1);
+      handleNodes(result.nodes);
+      handleRelationships(result.rels);
+    } catch (error) {
+      console.error('Failed to load retrieval information', error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

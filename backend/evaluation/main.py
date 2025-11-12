@@ -38,7 +38,7 @@ def upload_file(path, session_id):
         data = {"session_id": session_id}
         r = requests.post(url, files=files, data=data)
     if r.status_code != 200:
-        raise Exception(f"Upload failed for {path}: {r.text}")
+        raise requests.HTTPError(f"Upload failed for {path}: {r.text}", response=r)
     result = r.json()
     print(f"Uploaded {os.path.basename(path)} -> file_id={result.get('file_id')}")
     return result.get("file_id")
@@ -225,4 +225,3 @@ print(f"Avg relevance: {avg_relevance:.3f}")
 print(f"Avg correctness: {avg_correctness:.3f}")
 print(f"Avg fluency: {avg_fluency:.3f}")
 print(f"Avg context relevance: {avg_context_relevance:.3f}")
-

@@ -31,6 +31,96 @@ export default function Login() {
     setFeedback(null);
   }, [mode]);
 
+  const buildRegisterPayload = () => ({
+    name,
+    email,
+    password,
+    profesion: profession,
+  });
+
+  const handleRegister = async (baseUrl: string) => {
+    const url = `${baseUrl}/api/register`;
+    console.log('Registering new user at URL:', url);
+    const payload = buildRegisterPayload();
+    console.log('Register payload:', payload);
+
+    const res = await axios.post(url, payload);
+    console.log('Registration successful:', res.data);
+    setFeedback({
+      type: 'success',
+      message: 'Account created. Please verify your email before logging in.',
+    });
+    setPassword('');
+  };
+
+  const buildLoginPayload = () => ({ email, password });
+
+  const handleLogin = async (baseUrl: string) => {
+    const url = `${baseUrl}/api/login`;
+    console.log('Logging in user at URL:', url);
+    const payload = buildLoginPayload();
+    console.log('Login payload:', { email, password: '***' });
+
+    const res = await axios.post(url, payload);
+    console.log('Login successful:', res.data);
+    localStorage.setItem('user', JSON.stringify(res.data));
+    console.log('Redirecting to conversations...');
+    navigate('/conversations', { replace: true });
+  };
+
+  const handleAuthError = (err: unknown, mode: 'login' | 'register') => {
+    console.error('Auth error:', err);
+    if (!axios.isAxiosError(err)) {
+      setFeedback({
+        type: 'error',
+        message: 'We could not complete the authentication. Please try again.',
+      });
+      return;
+    }
+
+    const status = err.response?.status;
+    const detail = err.response?.data as { detail?: string } | undefined;
+
+    const registerErrors: Record<number, FeedbackMessage> = {
+      400: { type: 'error', message: 'This email is already registered.' },
+    };
+
+    if (mode === 'register' && status && registerErrors[status]) {
+      setFeedback(registerErrors[status]);
+      return;
+    }
+
+    if (mode === 'login' && status) {
+      if (status === 403) {
+        setFeedback({
+          type: 'error',
+          message: detail?.detail || 'Please verify your email before logging in.',
+        });
+        return;
+      }
+
+      if (status === 404) {
+        setFeedback({ type: 'error', message: 'Email not registered.' });
+        return;
+      }
+
+      if (status === 401) {
+        setFeedback({ type: 'error', message: 'Incorrect password.' });
+        return;
+      }
+    }
+
+    if (typeof detail?.detail === 'string' && detail.detail.trim().length > 0) {
+      setFeedback({ type: 'error', message: detail.detail });
+      return;
+    }
+
+    setFeedback({
+      type: 'error',
+      message: 'We could not complete the authentication. Please try again.',
+    });
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -50,79 +140,13 @@ export default function Login() {
       console.log("Final API Base URL:", base);
       
       if (mode === 'register') {
-        const url = `${base}/api/register`;
-        console.log("Registering new user at URL:", url);
-        const payload = {
-          name,
-          email,
-          password,
-          profesion: profession,
-        };
-        console.log("Register payload:", payload);
-        
-        const res = await axios.post(url, payload);
-        console.log("Registration successful:", res.data);
-        setFeedback({
-          type: 'success',
-          message: 'Account created. Please verify your email before logging in.',
-        });
-        setPassword('');
+        await handleRegister(base);
         return;
       }
 
-      const url = `${base}/api/login`;
-      console.log("Logging in user at URL:", url);
-      const payload = { email, password };
-      console.log("Login payload:", { email, password: "***" });
-
-      const res = await axios.post(url, payload);
-      console.log("Login successful:", res.data);
-      localStorage.setItem('user', JSON.stringify(res.data));
-
-      console.log("Redirecting to conversations...");
-      navigate('/conversations', { replace: true });
+      await handleLogin(base);
     } catch (err) {
-      console.error('Auth error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        url: err.config?.url
-      });
-      if (axios.isAxiosError(err)) {
-        const status = err.response?.status;
-        const detail = err.response?.data as { detail?: string } | undefined;
-
-        if (mode === 'register' && status === 400) {
-          setFeedback({ type: 'error', message: 'This email is already registered.' });
-          return;
-        }
-
-        if (mode === 'login' && status === 403) {
-          setFeedback({
-            type: 'error',
-            message: detail?.detail || 'Please verify your email before logging in.',
-          });
-          return;
-        }
-
-        if (mode === 'login' && status === 404) {
-          setFeedback({ type: 'error', message: 'Email not registered.' });
-          return;
-        }
-
-        if (mode === 'login' && status === 401) {
-          setFeedback({ type: 'error', message: 'Incorrect password.' });
-          return;
-        }
-
-        if (typeof detail?.detail === 'string' && detail.detail.trim().length > 0) {
-          setFeedback({ type: 'error', message: detail.detail });
-          return;
-        }
-      }
-
-      setFeedback({ type: 'error', message: 'We could not complete the authentication. Please try again.' });
+      handleAuthError(err, mode);
     } finally {
       setIsSubmitting(false);
     }

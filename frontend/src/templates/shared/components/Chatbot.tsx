@@ -283,7 +283,7 @@ export default function Chatbot(props: ChatbotProps) {
   const [uploadErrorsBySession, setUploadErrorsBySession] = useState<Record<string, string | null>>({});
   const [uploadingSessionId, setUploadingSessionId] = useState<string | null>(null);
   const [expandedFilesSessions, setExpandedFilesSessions] = useState<Record<string, boolean>>({});
-  const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<ChatMessage['id'] | null>(null);
 
   const fileStatusPollers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const fetchedSessionFilesRef = useRef<Set<string>>(new Set());
@@ -424,6 +424,23 @@ export default function Chatbot(props: ChatbotProps) {
       }
     };
   }, []);
+
+  const handleCopyMessage = useCallback(
+    (messageId: ChatMessage['id'], message: string) => {
+      copy(message);
+      setCopiedMessageId(messageId);
+
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+
+      copyFeedbackTimeoutRef.current = setTimeout(() => {
+        setCopiedMessageId((prev) => (prev === messageId ? null : prev));
+        copyFeedbackTimeoutRef.current = null;
+      }, 2000);
+    },
+    [copy]
+  );
 
   useEffect(() => {
     return () => {
@@ -1278,18 +1295,8 @@ export default function Chatbot(props: ChatbotProps) {
                           <IconButton
                             isClean
                             ariaLabel='Copy'
-                            onClick={() => {
-                              copy(chat.message);
-                              setCopiedMessageId(chat.id);
-                              if (copyFeedbackTimeoutRef.current) {
-                                clearTimeout(copyFeedbackTimeoutRef.current);
-                              }
-                              copyFeedbackTimeoutRef.current = setTimeout(() => {
-                                setCopiedMessageId((prev) => (prev === chat.id ? null : prev));
-                                copyFeedbackTimeoutRef.current = null;
-                              }, 2000);
-                            }}
-                            >
+                            onClick={() => handleCopyMessage(chat.id, chat.message)}
+                          >
                             {copiedMessageId === chat.id ? (
                               <CheckIconOutline className='w-4 h-4 inline-block n-text-palette-success-text' />
                             ) : (
