@@ -35,6 +35,7 @@ type ExpandedNode = {
   }[];
 };
 
+
 const resolveNodeLabel = (record: any) => {
   const labels = record.labels ?? [];
 
@@ -76,7 +77,7 @@ const resolveNodeColor = (record: any) => {
   return '#FF8E6A';
 };
 
-function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) {
+function RetrievalInformation({ sources, model, entities, timeTaken, onClose, _nodes, _rels}) {
 
   console.log("sources:", sources);
   console.log("nodes:", _nodes);
@@ -95,7 +96,7 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
   }
 
   useEffect(() => {
-    void run();
+    run();
   
   }, []);
 
@@ -132,37 +133,7 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
     onZoom: (zoomLevel: number) => console.log('onZoom', zoomLevel),
   };
 
-  async function run() {
-    const formattedSources = sources.map((source) => `"${source}"`).join(',');
-    console.log(`[${formattedSources}]`);
-
-    const query1 = `
-    MATCH (a:Chunk)-[r:PART_OF_DOCUMENT]->(b:Document)
-    WHERE elementId(a) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    UNION
-    MATCH (a:Chunk)-[r:NEXT_CHUNK]-(b:Chunk)
-    WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    UNION
-    MATCH (a:Chunk)-[r:MENTIONS]-(b)
-    WHERE elementId(a) in [${formattedSources}] AND elementId(b) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    UNION
-    MATCH (a:Chunk)-[r:RELATED_CONTENT]->(b:Image|Table)
-    WHERE elementId(a) in [${formattedSources}]
-    RETURN DISTINCT a,r,b
-    LIMIT 500
-    `;
-
-    const query2 = `  
-    MATCH (a:Chunk)-[r2:PART_OF_DOCUMENT]-(d:Document) WHERE elementId(a) in [${formattedSources}]
-    MATCH (a)-[r]-(b)
-    WHERE elementId(b) IN [${formattedSources}]
-    RETURN a, r, b, r2, d LIMIT 1000
-
-    `;
-
+  function run() {
     const buildNodeSnapshot = (record: any) => {
       const label = resolveNodeLabel(record);
       const color = resolveNodeColor(record);
@@ -195,12 +166,10 @@ function RetrievalInformation({ sources, model, entities, timeTaken, onClose }) 
     };
 
     try {
-      await setDriver(uri, username, password);
-      const result = await runQuery(query1);
-      handleNodes(result.nodes);
-      handleRelationships(result.rels);
+      handleNodes(_nodes);
+      handleRelationships(_rels);
     } catch (error) {
-      console.error('Failed to load retrieval information', error);
+      console.error('Error executing Cypher query:', error);
     } finally {
       setLoading(false);
     }
