@@ -1,6 +1,6 @@
 services:
   # Database services
-  
+
   postgres:
     image: postgres:17-alpine
     container_name: drchat-postgres
@@ -96,12 +96,15 @@ services:
     build:
       context: ./backend/ingestion/file-service
       dockerfile: Dockerfile
-    ports:
-      - "8001:8000"  
+    expose:
+      - "8000"
     env_file:
       - ./.env
     environment:
-      - STORAGE_DIR=/app/storage
+      STORAGE_DIR: /app/storage
+      VIRTUAL_HOST: dr-chat-file.duckdns.org
+      LETSENCRYPT_HOST: dr-chat-file.duckdns.org
+      LETSENCRYPT_EMAIL: igrzegorczyk@fi.uba.ar
     volumes:
       - ./storage:/app/storage
     restart: unless-stopped
@@ -112,7 +115,8 @@ services:
         condition: service_healthy
     networks:
       - drchat-network
-  
+      - stack_net
+
   document-processor-worker:
     build:
       context: ./backend/pipeline/document-processor-worker
@@ -160,10 +164,15 @@ services:
     build:
       context: ./backend/user/chat-service
       dockerfile: Dockerfile
-    ports:
-      - "8002:8000"
+    expose:
+      - "8000"
     env_file:
       - ./.env
+    environment:
+      VIRTUAL_HOST: dr-chat-chat.duckdns.org
+      VIRTUAL_PORT: 8000
+      LETSENCRYPT_HOST: dr-chat-chat.duckdns.org
+      LETSENCRYPT_EMAIL: igrzegorczyk@fi.uba.ar
     depends_on:
       neo4j:
         condition: service_healthy
@@ -171,19 +180,23 @@ services:
         condition: service_started
     networks:
       - drchat-network
+      - stack_net
     restart: unless-stopped
 
   user-service:
     build:
       context: ./backend/user/user-service
       dockerfile: Dockerfile
-    ports:
-      - "8004:8000"
+    expose:
+      - "8000"
     env_file:
       - ./.env
     environment:
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
       GOOGLE_CLOUD_PROJECT: ${FIREBASE_PROJECT_ID}
+      VIRTUAL_HOST: dr-chat-user.duckdns.org
+      LETSENCRYPT_HOST: dr-chat-user.duckdns.org
+      LETSENCRYPT_EMAIL: igrzegorczyk@fi.uba.ar
     volumes:
       - ./backend/user/user-service/secrets/firebase-sa.json:/run/secrets/firebase-sa.json:ro
     depends_on:
@@ -191,6 +204,7 @@ services:
         condition: service_healthy
     networks:
       - drchat-network
+      - stack_net
     restart: unless-stopped
 
   # Frontend service
@@ -199,18 +213,24 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "3000:5173"
     env_file:
       - ./frontend/.env
+    environment:
+      VIRTUAL_HOST: dr-chat.app
+      LETSENCRYPT_HOST: dr-chat.app
+      LETSENCRYPT_EMAIL: igrzegorczyk@fi.uba.ar
+    expose:
+      - "5173"
     networks:
       - drchat-network
+      - stack_net
 
 # Networks
 networks:
   drchat-network:
     driver: bridge
-
+  stack_net:
+    external: true
 # Volumes
 volumes:
   postgres_data:

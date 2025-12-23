@@ -18,9 +18,15 @@ def build_query(list_ids):
     WHERE elementId(a) in [{formatted_sources}] AND elementId(b) in [{formatted_sources}]
     RETURN DISTINCT a,r,b
     UNION
-    MATCH (a:Chunk)-[r:MENTIONS]-(b:Entity)
+    MATCH (a:Chunk)-[r:MENTIONS]-(b)
     WHERE elementId(a) in [{formatted_sources}] AND elementId(b) in [{formatted_sources}]
     RETURN DISTINCT a,r,b
+    UNION
+    MATCH (c:Chunk)-[:MENTIONS]->(a) 
+    MATCH (c)-[:MENTIONS]->(b) 
+    MATCH (a)-[r]->(b) 
+    WHERE elementId(c) IN [{formatted_sources}] AND a <> b 
+    RETURN DISTINCT a, r, b
     UNION
     MATCH (a:Chunk)-[r:RELATED_CONTENT]->(b:Image|Table)
     WHERE elementId(a) in [{formatted_sources}]
@@ -132,3 +138,4 @@ class AnswerQuestionEndpoint:
             except Exception as e:
                 logger.error(f"Error processing question: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+

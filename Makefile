@@ -24,41 +24,41 @@ help:
 # Comandos para levantar servicios
 up:
 	@echo "Levantando DrChat con todas las bases de datos locales..."
-	docker compose up -d
+	docker-compose up -d
 
 up-external-neo4j:
 	@echo "Levantando DrChat con Neo4j externo..."
 	@echo "Asegúrate de tener configurado NEO4J_URI en tu archivo .env"
-	docker compose up -d --scale neo4j=0
+	docker-compose up -d --scale neo4j=0
 
 up-external-postgres:
 	@echo "Levantando DrChat con PostgreSQL externo..."
 	@echo "Asegúrate de tener configuradas las variables POSTGRES_* en tu archivo .env"
-	docker compose up -d --scale postgres=0
+	docker-compose up -d --scale postgres=0
 
 up-external:
 	@echo "Levantando DrChat con bases de datos externas..."
 	@echo "Asegúrate de tener configurados NEO4J_URI y POSTGRES_* en tu archivo .env"
-	docker compose up -d --scale neo4j=0 --scale postgres=0
+	docker-compose up -d --scale neo4j=0 --scale postgres=0
 
 # Comandos para detener servicios
 down:
 	@echo "Deteniendo DrChat completo..."
-	docker compose down
+	docker-compose down
 
 # Comandos adicionales de utilidad
 logs:
 	@echo "Mostrando logs de file-service y document-processor-worker..."
-	docker compose logs -f file-service document-processor-worker
+	docker-compose logs -f file-service document-processor-worker
 
 build:
 	@echo "Construyendo todas las imágenes de DrChat..."
-	docker compose build
+	docker-compose build
 
 # Comandos para ver estado
 status:
 	@echo "Estado de los contenedores de DrChat..."
-	docker compose ps
+	docker-compose ps
 
 # Evaluación
 evaluation:
